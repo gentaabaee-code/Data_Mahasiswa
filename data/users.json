@@ -1,0 +1,30 @@
+[
+  {
+    "user_id": "976e5a9d796e4088bf915527d034a3b7",
+    "username": "glenadi.teguh",
+    "email": "glenadi.teguh@gandummas.co.id",
+    "password_hash": "scrypt:32768:8:1$ZmFJrm1WK9nVAihL$6ffede00e037cc529e0331aa96f63d03611d55c7c0d4fad9c176ccd3369be061f6e6b17ce0354d19de353b2298b40eecd7eba310f22a52b60205b15649280ccb",
+    "role": "super_admin"
+  },
+  {
+    "user_id": "d8a9533dae74424ca66e0b16d51ce29f",
+    "username": "nor.nadya",
+    "email": "nor.nadya@gmail.com",
+    "password_hash": "scrypt:32768:8:1$RKl1MEMFdsaCOHoK$95ba671def9dab1eee388b92f53b954d85b5655f504ad0d7e3edfe0b3d458836a77a35c6e14fa7f05f5d5a059ceb67c0ed27d59ea9444bf4537f108eefb7295c",
+    "role": "user"
+  },
+  {
+    "user_id": "b860c0d359b244d180b2be381481c456",
+    "username": "admin",
+    "email": "admin@gmail.com",
+    "password_hash": "scrypt:32768:8:1$kjhmTBnheUzRNFed$0c5f498b9a87ac05dfbd509b22b44d0bde7df8db8bd24db9a49671741b0dc8dedc7f7ff41b8e83d26bdcdac7e9b2e05393b7bc2aad0045db3c10fa9413860f32",
+    "role": "user"
+  },
+  {
+    "user_id": "1618fb5c7b5a41d6bdac10ced524b29c",
+    "username": "fahmi.maulana",
+    "email": "fahmi.maulana@gmail.com",
+    "password_hash": "scrypt:32768:8:1$f2VTEesPS6j5rpBr$fed75095702d0f99b106e9789c42477c8b46a4a6e6f3a5c046ee8df9c3d2782889865401990605712a8c4ee7935ea0801b20eede0ce484cfaa88ecb6201dfbfd",
+    "role": "user"
+  }
+]

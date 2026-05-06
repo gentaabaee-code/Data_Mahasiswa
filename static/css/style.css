@@ -1,0 +1,215 @@
+/* =============================================================================
+   Student Data Management System – style.css
+   ============================================================================= */
+
+/* ── CSS Variables ─────────────────────────────────────────────────────────── */
+:root {
+  --primary:        #4F46E5;
+  --primary-dark:   #3730A3;
+  --primary-light:  #EEF2FF;
+  --bg:             #F1F5F9;
+  --surface:        #FFFFFF;
+  --border:         #E2E8F0;
+  --text-main:      #1E293B;
+  --text-muted:     #64748B;
+  --radius-sm:      8px;
+  --radius-md:      12px;
+  --shadow-sm:      0 1px 4px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+  --shadow-md:      0 4px 12px rgba(0,0,0,.10);
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+body {
+  background-color: var(--bg);
+  color: var(--text-main);
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: .9375rem;
+}
+
+/* ── Navbar ────────────────────────────────────────────────────────────────── */
+.navbar {
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+  box-shadow: 0 2px 8px rgba(79, 70, 229, .30);
+  padding: .85rem 0;
+}
+
+/* ── Stat Cards ────────────────────────────────────────────────────────────── */
+.stat-card {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 1.125rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: var(--shadow-sm);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+.stat-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+.stat-label {
+  font-size: .75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  margin-bottom: .15rem;
+}
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+.card {
+  border-radius: var(--radius-md) !important;
+}
+.card-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: .875rem 1.25rem;
+}
+.card-footer {
+  background: var(--surface);
+}
+
+/* ── Action panels ─────────────────────────────────────────────────────────── */
+.panel-search  { background: #EFF6FF !important; }   /* Blue tint  */
+.panel-sort    { background: #FFFBEB !important; }   /* Yellow tint */
+.panel-title {
+  font-weight: 700;
+  font-size: .875rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+}
+
+/* ── Table ─────────────────────────────────────────────────────────────────── */
+.table > thead > tr > th {
+  background: #F8FAFC;
+  color: var(--text-muted);
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  padding: .75rem 1rem;
+}
+.table > tbody > tr > td {
+  padding: .75rem 1rem;
+  vertical-align: middle;
+  border-color: var(--border);
+}
+.table-hover > tbody > tr:hover > td {
+  background-color: #F5F7FF;
+}
+
+/* ── GPA Badges ────────────────────────────────────────────────────────────── */
+.gpa-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.6rem;
+  padding: .2em .55em;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: .8125rem;
+}
+.gpa-a    { background: #DCFCE7; color: #15803D; }
+.gpa-b    { background: #DBEAFE; color: #1D4ED8; }
+.gpa-c    { background: #FEF9C3; color: #854D0E; }
+.gpa-d    { background: #FEE2E2; color: #B91C1C; }
+
+/* ── Status Badges ─────────────────────────────────────────────────────────── */
+.status-deans      { background: #DCFCE7; color: #15803D; }
+.status-good       { background: #DBEAFE; color: #1D4ED8; }
+.status-probation  { background: #FEF9C3; color: #854D0E; }
+.status-suspension { background: #FEE2E2; color: #B91C1C; }
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+.btn {
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+.btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.btn-primary:hover,
+.btn-primary:focus {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+/* ── Algorithm Info Bar ────────────────────────────────────────────────────── */
+.algo-info {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .5rem .875rem;
+  font-size: .8125rem;
+  color: var(--text-muted);
+}
+.algo-info code {
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: .1em .35em;
+  border-radius: 4px;
+  font-size: .8em;
+}
+
+/* ── View Modal Details ────────────────────────────────────────────────────── */
+.detail-row {
+  display: flex;
+  align-items: flex-start;
+  padding: .5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-label {
+  width: 145px;
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: .875rem;
+  padding-top: .05rem;
+}
+.detail-value {
+  font-size: .9375rem;
+  word-break: break-word;
+}
+
+/* ── Avatar circle ─────────────────────────────────────────────────────────── */
+.avatar-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, #818CF8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.625rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 576px) {
+  .stat-value      { font-size: 1.375rem; }
+  .navbar-brand span { font-size: .9rem; }
+}

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - Sistem Manajemen Data Mahasiswa</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      background: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.55)), url('/static/images/campus.jpg') center/cover no-repeat fixed;
+      font-family: Inter, system-ui, sans-serif;
+    }
+    .page-bg {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 420px;
+      border-radius: 28px;
+      background: #ffffff;
+      box-shadow: 0 28px 70px rgba(15, 35, 75, 0.18);
+      overflow: hidden;
+    }
+    .auth-card .card-body {
+      padding: 2.5rem 2rem 1.5rem;
+    }
+    .auth-header {
+      background: linear-gradient(180deg, rgba(92, 100, 255, 0.1), rgba(255, 255, 255, 0));
+      padding: 2rem 2rem 1.5rem;
+      text-align: center;
+    }
+    .auth-header .icon-box {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #eef1ff;
+      margin-bottom: 1rem;
+    }
+    .auth-header .icon-box i {
+      color: #4f6cff;
+      font-size: 1.8rem;
+    }
+    .auth-header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+      color: #1f2e56;
+    }
+    .auth-header p {
+      margin-bottom: 0;
+      color: #6f78a6;
+    }
+    .form-label {
+      color: #1f2e56;
+      font-weight: 600;
+    }
+    .form-control {
+      height: 54px;
+      border-radius: 14px;
+      border: 1px solid #d8e0f5;
+      background: #f8f9ff;
+      color: #1f2e56;
+      box-shadow: none;
+    }
+    .form-control:focus {
+      border-color: #6875f5;
+      box-shadow: 0 0 0 0.2rem rgba(104, 117, 245, 0.18);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #4f6cff 0%, #5568ff 100%);
+      border: none;
+      border-radius: 14px;
+      height: 54px;
+      font-weight: 600;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #3f5af0 0%, #4f5ceb 100%);
+    }
+    .text-muted {
+      color: #7a84aa !important;
+    }
+    .link-register {
+      color: #4f6cff;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .link-register:hover {
+      text-decoration: underline;
+    }
+    .password-input-wrapper {
+      position: relative;
+    }
+    .password-toggle-btn {
+      position: absolute;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #6f78a6;
+      cursor: pointer;
+      padding: 0.25rem 0.5rem;
+      font-size: 1.1rem;
+    }
+    .password-toggle-btn:hover {
+      color: #4f6cff;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-bg">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="icon-box">
+          <i class="bi bi-mortarboard-fill"></i>
+        </div>
+        <h1>Login</h1>
+        <p>Sistem Manajemen Data Mahasiswa</p>
+      </div>
+      <div class="card-body">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="post" action="{{ url_for('login') }}">
+          <div class="mb-3">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" class="form-control" id="username" name="username" placeholder="Masukkan username" required autofocus>
+          </div>
+          <div class="mb-3">
+            <label for="password" class="form-label">Password</label>
+            <div class="password-input-wrapper">
+              <input type="password" class="form-control" id="password" name="password" placeholder="Masukkan password" required>
+              <button type="button" class="password-toggle-btn" id="toggle-password" onclick="togglePasswordVisibility('password', 'toggle-password')">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Login</button>
+        </form>
+
+        <div class="text-center mt-4">
+          <span class="text-muted">Belum punya akun? </span>
+          <a href="{{ url_for('register') }}" class="link-register">Daftar</a>
+          <br />
+          <span class="text-muted mt-2" style="display: inline-block;">Lupa password? </span>
+          <a href="{{ url_for('forgot_password') }}" class="link-register">Reset</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    function togglePasswordVisibility(inputId, buttonId) {
+      const input = document.getElementById(inputId);
+      const button = document.getElementById(buttonId);
+      const icon = button.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('bi-eye');
+        icon.classList.add('bi-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye');
+      }
+    }
+  </script>
+</body>
+</html>
