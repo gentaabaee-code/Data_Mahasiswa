@@ -263,6 +263,7 @@ def delete_user(user_id: str):
 # ─────────────────────────── Page Route ───────────────────────────────────
 
 @app.route("/")
+@login_required
 def index():
     """Serve the single-page frontend."""
     return render_template("index.html")
@@ -271,6 +272,7 @@ def index():
 # ─────────────────────────── Students – CRUD ──────────────────────────────
 
 @app.route("/api/students", methods=["GET"])
+@login_required
 def get_students():
     """
     Return all students as a JSON array.
@@ -382,6 +384,7 @@ def delete_student(student_id: str):
 # ─────────────────────────── Search ───────────────────────────────────────
 
 @app.route("/api/students/search", methods=["GET"])
+@login_required
 def search_students():
     """
     Search students by a field value using a chosen algorithm.
@@ -450,6 +453,7 @@ def search_students():
 # ─────────────────────────── Sort ─────────────────────────────────────────
 
 @app.route("/api/students/sort", methods=["GET"])
+@login_required
 def sort_students():
     """
     Sort students by a chosen field using a chosen algorithm.
