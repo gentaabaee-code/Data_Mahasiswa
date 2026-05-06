@@ -19,6 +19,7 @@ and returns structured JSON error responses instead of raw exceptions.
 """
 
 import os
+import tempfile
 import time
 
 from flask import (
@@ -57,8 +58,27 @@ from utils.sort import SortAlgorithms
 
 app = Flask(__name__)
 app.secret_key = "replace-with-a-secure-key"
-manager = StudentManager(data_file=os.path.join(app.root_path, "data", "students.json"))
-user_manager = UserManager(data_file=os.path.join(app.root_path, "data", "users.json"))
+
+
+def _resolve_data_file(name: str) -> str:
+    preferred_dir = os.environ.get("DATA_DIR") or os.path.join(app.root_path, "data")
+    fallback_dir = os.path.join(tempfile.gettempdir(), "data_mahasiswa")
+
+    for data_dir in (preferred_dir, fallback_dir):
+        try:
+            os.makedirs(data_dir, exist_ok=True)
+            test_file = os.path.join(data_dir, ".permtest")
+            with open(test_file, "a", encoding="utf-8"):
+                pass
+            os.remove(test_file)
+            return os.path.join(data_dir, name)
+        except OSError:
+            continue
+
+    raise RuntimeError("Tidak ada direktori data yang dapat ditulis. Pastikan aplikasi memiliki izin penulisan.")
+
+manager = StudentManager(data_file=_resolve_data_file("students.json"))
+user_manager = UserManager(data_file=_resolve_data_file("users.json"))
 
 login_manager = LoginManager()
 login_manager.init_app(app)
