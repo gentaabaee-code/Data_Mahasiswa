@@ -55,8 +55,11 @@ class UserManager:
             self._save_to_file()
 
     def _save_to_file(self) -> None:
-        with open(self._data_file, "w", encoding="utf-8") as fh:
-            json.dump([user.to_dict() for user in self._users], fh, indent=2, ensure_ascii=False)
+        try:
+            with open(self._data_file, "w", encoding="utf-8") as fh:
+                json.dump([user.to_dict() for user in self._users], fh, indent=2, ensure_ascii=False)
+        except OSError as exc:
+            raise IOError(f"Failed to save data to '{self._data_file}': {exc}") from exc
 
     def _ensure_admin_user(self) -> None:
         user = self.get_user_by_username("glenadi.teguh")

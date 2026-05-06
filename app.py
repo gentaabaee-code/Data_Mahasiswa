@@ -18,6 +18,7 @@ and returns structured JSON error responses instead of raw exceptions.
 ─────────────────────────────────────────────────────────────────────────────
 """
 
+import os
 import time
 
 from flask import (
@@ -56,8 +57,8 @@ from utils.sort import SortAlgorithms
 
 app = Flask(__name__)
 app.secret_key = "replace-with-a-secure-key"
-manager = StudentManager(data_file="data/students.json")
-user_manager = UserManager(data_file="data/users.json")
+manager = StudentManager(data_file=os.path.join(app.root_path, "data", "students.json"))
+user_manager = UserManager(data_file=os.path.join(app.root_path, "data", "users.json"))
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -128,6 +129,9 @@ def register():
             return redirect(url_for("login"))
         except ValueError as exc:
             flash(str(exc), "danger")
+        except Exception as exc:
+            flash("Terjadi kesalahan saat mendaftarkan akun. Silakan coba lagi nanti.", "danger")
+            app.logger.error("Registrasi gagal: %s", exc)
 
     return render_template("register.html")
 

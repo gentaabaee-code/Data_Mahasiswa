@@ -14,13 +14,6 @@
     "role": "user"
   },
   {
-    "user_id": "b860c0d359b244d180b2be381481c456",
-    "username": "admin",
-    "email": "admin@gmail.com",
-    "password_hash": "scrypt:32768:8:1$kjhmTBnheUzRNFed$0c5f498b9a87ac05dfbd509b22b44d0bde7df8db8bd24db9a49671741b0dc8dedc7f7ff41b8e83d26bdcdac7e9b2e05393b7bc2aad0045db3c10fa9413860f32",
-    "role": "user"
-  },
-  {
     "user_id": "1618fb5c7b5a41d6bdac10ced524b29c",
     "username": "fahmi.maulana",
     "email": "fahmi.maulana@gmail.com",
