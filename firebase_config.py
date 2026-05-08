@@ -17,15 +17,21 @@ GOOGLE_APPLICATION_CREDENTIALS to its path.
 ──────────────────────────────────────────────────────────────────────────────
 """
 
+import json
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
+from google.auth.exceptions import DefaultCredentialsError
 
 # ── Project details (from firebase.js) ────────────────────────────────────
 FIREBASE_PROJECT_ID     = "data-mahasiswa-132d3"
 FIREBASE_STORAGE_BUCKET = "data-mahasiswa-132d3.firebasestorage.app"
 
 _PROJECT_ROOT = os.path.dirname(__file__)
+_SERVICE_ACCOUNT_JSON_ENV_VARS = (
+    "FIREBASE_SERVICE_ACCOUNT_JSON",
+    "FIREBASE_SERVICE_ACCOUNT_KEY",
+)
 _LOCAL_SERVICE_ACCOUNT_CANDIDATES = (
     os.path.join(_PROJECT_ROOT, "serviceAccountKey.json"),
     os.path.join(_PROJECT_ROOT, "serviceAccountKey.local.json"),
@@ -48,32 +54,70 @@ def _resolve_service_account_path() -> str | None:
     return None
 
 
+def _resolve_service_account_certificate():
+    for env_name in _SERVICE_ACCOUNT_JSON_ENV_VARS:
+        raw_json = os.environ.get(env_name, "").strip()
+        if not raw_json:
+            continue
+
+        try:
+            service_account_info = json.loads(raw_json)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"Environment variable '{env_name}' must contain valid Firebase service account JSON."
+            ) from exc
+
+        private_key = service_account_info.get("private_key")
+        if private_key:
+            service_account_info["private_key"] = private_key.replace("\\n", "\n")
+
+        return credentials.Certificate(service_account_info)
+
+    service_account_path = _resolve_service_account_path()
+    if service_account_path and os.path.exists(service_account_path):
+        return credentials.Certificate(service_account_path)
+
+    return None
+
+
 def get_firestore_client():
     """
     Initialize the Firebase Admin SDK (only once) and return a Firestore client.
 
     Initialization order:
-      1. serviceAccountKey.json in project root  (local development)
-      2. GOOGLE_APPLICATION_CREDENTIALS env var  (any explicit path)
-      3. Application Default Credentials          (GCP / Cloud Run deployment)
+      1. FIREBASE_SERVICE_ACCOUNT_JSON / FIREBASE_SERVICE_ACCOUNT_KEY env var
+      2. serviceAccountKey.json in project root  (local development)
+      3. GOOGLE_APPLICATION_CREDENTIALS env var  (any explicit path)
+      4. Application Default Credentials          (GCP / Cloud Run deployment)
     """
     if not firebase_admin._apps:
-        service_account_path = _resolve_service_account_path()
+        service_account_credential = _resolve_service_account_certificate()
 
-        if service_account_path and os.path.exists(service_account_path):
-            cred = credentials.Certificate(service_account_path)
-            firebase_admin.initialize_app(cred, {
+        if service_account_credential is not None:
+            firebase_admin.initialize_app(service_account_credential, {
                 "projectId":     FIREBASE_PROJECT_ID,
                 "storageBucket": FIREBASE_STORAGE_BUCKET,
             })
         else:
-            # Fallback: Application Default Credentials (gcloud auth / GCP env)
-            firebase_admin.initialize_app(options={
-                "projectId":     FIREBASE_PROJECT_ID,
-                "storageBucket": FIREBASE_STORAGE_BUCKET,
-            })
+            try:
+                # Fallback: Application Default Credentials (gcloud auth / GCP env)
+                firebase_admin.initialize_app(options={
+                    "projectId":     FIREBASE_PROJECT_ID,
+                    "storageBucket": FIREBASE_STORAGE_BUCKET,
+                })
+            except DefaultCredentialsError as exc:
+                raise RuntimeError(
+                    "Firebase Admin credentials were not found. "
+                    "Set FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS in the deployment environment."
+                ) from exc
 
-    return firestore.client()
+    try:
+        return firestore.client()
+    except DefaultCredentialsError as exc:
+        raise RuntimeError(
+            "Firebase Admin credentials were not found. "
+            "Set FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS in the deployment environment."
+        ) from exc
 
 
 # Singleton client – import this wherever Firestore access is needed
