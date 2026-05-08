@@ -24,9 +24,11 @@ def _get_field_str(student: Student, field: str) -> str:
     mapping = {
         "name":       student.name,
         "student_id": student.student_id,
+        "birth_date": student.birth_date,
         "email":      student.email,
         "major":      student.major,
         "phone":      student.phone,
+        "education_level": student.education_level,
     }
     return str(mapping.get(field, student.name)).lower()
 

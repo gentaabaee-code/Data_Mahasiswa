@@ -19,5 +19,12 @@
     "email": "fahmi.maulana@gmail.com",
     "password_hash": "scrypt:32768:8:1$f2VTEesPS6j5rpBr$fed75095702d0f99b106e9789c42477c8b46a4a6e6f3a5c046ee8df9c3d2782889865401990605712a8c4ee7935ea0801b20eede0ce484cfaa88ecb6201dfbfd",
     "role": "user"
+  },
+  {
+    "user_id": "e891b8a18d094d539f08253f797b2fc7",
+    "username": "kodir",
+    "email": "kodir@email.com",
+    "password_hash": "scrypt:32768:8:1$BuEITYWwyIOdOS9X$b4be4e81c26bc4529dbccf89ea033df51b92bbcda0e389509563d740c174c42bcf3ca81011cbee3bd6ac09287d48e7984082ac2da8ef3c296a376df20e1d6df5",
+    "role": "user"
   }
 ]

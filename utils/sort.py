@@ -33,7 +33,9 @@ def _make_key(field: str) -> Callable[[Student], object]:
         mapping = {
             "name":       student.name.lower(),
             "student_id": student.student_id.lower(),
+            "birth_date": (student.birth_date or ""),
             "email":      student.email.lower(),
+            "education_level": (student.education_level or "").lower(),
             "major":      student.major.lower(),
             "gpa":        student.gpa,
             "age":        student.age,

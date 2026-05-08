@@ -47,8 +47,8 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet
 import io
 
-from models.student_manager import StudentManager
-from models.user_manager import UserManager
+from models.firestore_student_manager import FirestoreStudentManager
+from models.firestore_user_manager import FirestoreUserManager
 from utils.validators import StudentValidator
 from utils.search import SearchAlgorithms
 from utils.sort import SortAlgorithms
@@ -77,8 +77,10 @@ def _resolve_data_file(name: str) -> str:
 
     raise RuntimeError("Tidak ada direktori data yang dapat ditulis. Pastikan aplikasi memiliki izin penulisan.")
 
-manager = StudentManager(data_file=_resolve_data_file("students.json"))
-user_manager = UserManager(data_file=_resolve_data_file("users.json"))
+manager = FirestoreStudentManager(seed_file=_resolve_data_file("students.json"))
+manager.backfill_missing_semesters(3, 7)
+manager.backfill_missing_profiles()
+user_manager = FirestoreUserManager(seed_file=_resolve_data_file("users.json"))
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -144,7 +146,7 @@ def register():
             return render_template("register.html")
 
         try:
-            user_manager.create_user(username=username, email=email, password=password, role="user")
+            user_manager.create_user(username=username, email=email, password=password, role="admin")
             flash("Registrasi berhasil. Silakan login.", "success")
             return redirect(url_for("login"))
         except ValueError as exc:
@@ -554,7 +556,7 @@ def export_students_excel():
         ws.title = "Students"
 
         # Header
-        headers = ["NIM", "Nama", "Umur", "Email", "Telepon", "Jurusan", "IPK", "Nilai", "Alamat", "Dibuat Pada"]
+        headers = ["NIM", "Nama", "Tanggal Lahir", "Email", "Telepon", "Jenjang Pendidikan", "Jurusan", "IPK", "Nilai", "Semester", "Dibuat Pada"]
         for col_num, header in enumerate(headers, 1):
             ws.cell(row=1, column=col_num, value=header)
 
@@ -562,14 +564,15 @@ def export_students_excel():
         for row_num, student in enumerate(students, 2):
             ws.cell(row=row_num, column=1, value=student.student_id)
             ws.cell(row=row_num, column=2, value=student.name)
-            ws.cell(row=row_num, column=3, value=student.age)
+            ws.cell(row=row_num, column=3, value=student.birth_date or "-")
             ws.cell(row=row_num, column=4, value=student.email)
             ws.cell(row=row_num, column=5, value=student.phone)
-            ws.cell(row=row_num, column=6, value=student.major)
-            ws.cell(row=row_num, column=7, value=student.gpa)
-            ws.cell(row=row_num, column=8, value=student.get_grade_letter())
-            ws.cell(row=row_num, column=9, value=student.address)
-            ws.cell(row=row_num, column=10, value=student.created_at)
+            ws.cell(row=row_num, column=6, value=student.education_level or "-")
+            ws.cell(row=row_num, column=7, value=student.major)
+            ws.cell(row=row_num, column=8, value=student.gpa)
+            ws.cell(row=row_num, column=9, value=student.get_grade_letter())
+            ws.cell(row=row_num, column=10, value=student.semester if student.semester is not None else "-")
+            ws.cell(row=row_num, column=11, value=student.created_at)
 
         # Save to bytes
         output = io.BytesIO()
@@ -608,23 +611,24 @@ def export_students_pdf():
         elements.append(title)
 
         # Data
-        data = [["NIM", "Nama", "Umur", "Email", "Telepon", "Jurusan", "IPK", "Nilai", "Alamat"]]
+        data = [["NIM", "Nama", "Tanggal Lahir", "Email", "Telepon", "Jenjang", "Jurusan", "IPK", "Nilai", "Semester"]]
         for student in students:
             data.append([
                 student.student_id,
                 student.name,
-                str(student.age),
+                student.birth_date or "-",
                 student.email,
                 student.phone,
+                student.education_level or "-",
                 student.major,
                 f"{student.gpa:.2f}",
                 student.get_grade_letter(),
-                student.address,
+                str(student.semester) if student.semester is not None else "-",
             ])
 
         # Define column widths (in points, 72 points = 1 inch)
         # Landscape letter is 11" x 8.5", so we have ~792 points width
-        col_widths = [80, 100, 40, 140, 80, 80, 50, 50, 140]  # Adjusted for 9 columns
+        col_widths = [80, 100, 70, 135, 80, 55, 80, 45, 45, 55]
 
         # Create table with column widths
         table = Table(data, colWidths=col_widths)

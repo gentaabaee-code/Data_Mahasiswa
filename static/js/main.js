@@ -5,28 +5,33 @@
 
 'use strict';
 
-/* ── State ────────────────────────────────────────────────────────────────── */
-let allStudents      = [];    // Full list loaded from the server
-let displayedStudents = [];   // Currently rendered subset (filtered / sorted)
-let editingId        = null;  // student_id being edited; null → add mode
-let deleteTargetId   = null;  // student_id queued for deletion
+let allStudents = [];
+let displayedStudents = [];
+let editingId = null;
+let deleteTargetId = null;
+let currentSection = 'dashboard';
 
-/* ── Bootstrap modal instances ───────────────────────────────────────────── */
+const dashboardCharts = {};
+
+const SECTION_META = {
+    dashboard: {
+        kicker: 'Panel Analitik',
+        title: 'Dashboard',
+        subtitle: 'Pantau performa akademik mahasiswa dari satu tampilan ringkas sebelum masuk ke data lengkap.',
+    },
+    students: {
+        kicker: 'Pusat Data',
+        title: 'Data Mahasiswa',
+        subtitle: 'Lihat seluruh mahasiswa beserta fitur pencarian, pengurutan, ekspor, dan pengelolaan data seperti sebelumnya.',
+    },
+};
+
+const CHART_COLORS = ['#4F46E5', '#38C999', '#F4B740', '#66758F', '#66A8FF', '#F26D7D'];
+
 const studentModal = new bootstrap.Modal(document.getElementById('studentModal'));
-const deleteModal  = new bootstrap.Modal(document.getElementById('deleteModal'));
-const viewModal    = new bootstrap.Modal(document.getElementById('viewModal'));
+const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+const viewModal = new bootstrap.Modal(document.getElementById('viewModal'));
 
-/* ═══════════════════════════════ API Layer ══════════════════════════════════ */
-
-/**
- * Thin fetch wrapper that:
- *  - Always sends/expects JSON
- *  - Throws Error with the server's error messages on non-2xx responses
- *
- * @param {string}  url     - Relative API endpoint
- * @param {object}  options - Fetch options (method, body, …)
- * @returns {Promise<object>} Parsed JSON response body
- */
 async function apiFetch(url, options = {}) {
     const resp = await fetch(url, {
         headers: { 'Content-Type': 'application/json' },
@@ -36,7 +41,6 @@ async function apiFetch(url, options = {}) {
     const data = await resp.json();
 
     if (!resp.ok) {
-        // Surface server-side validation messages to the user
         const msg = Array.isArray(data.errors)
             ? data.errors.join('\n')
             : (data.errors || 'Request failed');
@@ -46,39 +50,59 @@ async function apiFetch(url, options = {}) {
     return data;
 }
 
-
-/* ═══════════════════════════════ Load / Render ══════════════════════════════ */
-
-/**
- * Fetch all students from the server and refresh the UI.
- * Time Complexity: O(n) – renders every row.
- */
 async function loadStudents() {
     showLoading(true);
+
     try {
         const result = await apiFetch('/api/students');
-        allStudents       = result.data;
-        displayedStudents = [...allStudents];
-        renderTable(displayedStudents);
-        updateStats(allStudents);
-        setViewLabel('All Students', 'primary');
+        allStudents = Array.isArray(result.data) ? result.data : [];
+        updateTopbarCount(allStudents);
+        renderDashboard(allStudents);
+        showStudentsHome({ resetForms: false, closePanels: false });
     } catch (err) {
         showToast('Gagal memuat data: ' + err.message, 'danger');
         showLoading(false);
     }
 }
 
-/**
- * Render the students array into the HTML table.
- * Handles empty, loading, and populated states.
- *
- * @param {Array} students - Array of student plain-objects (from to_dict)
- */
+function switchSection(section) {
+    currentSection = section;
+
+    const dashboardSection = document.getElementById('dashboard-section');
+    const studentsSection = document.getElementById('students-section');
+    const dashboardNav = document.getElementById('nav-dashboard');
+    const studentsNav = document.getElementById('nav-students');
+
+    const isDashboard = section === 'dashboard';
+
+    dashboardSection.classList.remove('section-reveal');
+    studentsSection.classList.remove('section-reveal');
+
+    dashboardSection.classList.toggle('d-none', !isDashboard);
+    studentsSection.classList.toggle('d-none', isDashboard);
+    dashboardNav.classList.toggle('is-active', isDashboard);
+    studentsNav.classList.toggle('is-active', !isDashboard);
+
+    const activeSection = isDashboard ? dashboardSection : studentsSection;
+    void activeSection.offsetWidth;
+    activeSection.classList.add('section-reveal');
+
+    const meta = SECTION_META[section] || SECTION_META.dashboard;
+    document.getElementById('section-kicker').textContent = meta.kicker;
+    document.getElementById('section-title').textContent = meta.title;
+    document.getElementById('section-subtitle').textContent = meta.subtitle;
+
+    if (!isDashboard) {
+        showStudentsHome();
+    }
+}
+
 function renderTable(students) {
-    const tbody      = document.getElementById('students-tbody');
-    const tableWrap  = document.getElementById('table-wrapper');
+    const tbody = document.getElementById('students-tbody');
+    const tableWrap = document.getElementById('table-wrapper');
     const emptyState = document.getElementById('empty-state');
-    const badge      = document.getElementById('table-badge');
+    const badge = document.getElementById('table-badge');
+    const isAdmin = window.IS_ADMIN === true || window.IS_ADMIN === 'true';
 
     showLoading(false);
     badge.textContent = students.length;
@@ -86,58 +110,344 @@ function renderTable(students) {
     if (students.length === 0) {
         tableWrap.classList.add('d-none');
         emptyState.classList.remove('d-none');
+        tbody.innerHTML = '';
         return;
     }
 
     emptyState.classList.add('d-none');
     tableWrap.classList.remove('d-none');
 
-    const isAdmin = window.IS_ADMIN === true || window.IS_ADMIN === 'true';
-
-    tbody.innerHTML = students.map((s, i) => `
-        <tr>
-            <td class="text-muted small">${i + 1}</td>
-            <td><code class="small">${s.student_id}</code></td>
-            <td class="fw-semibold">${esc(s.name)}</td>
-            <td>${s.age}</td>
-            <td class="small text-muted">${esc(s.email)}</td>
-            <td class="small">${esc(s.phone)}</td>
-            <td>${esc(s.major)}</td>
-            <td><span class="gpa-badge ${gpaClass(s.gpa)}">${s.gpa.toFixed(2)}</span></td>
-            <td><span class="badge bg-secondary">${s.grade_letter}</span></td>
-            ${isAdmin ? `
-            <td class="text-center" style="white-space:nowrap">
-                <button class="btn btn-sm btn-outline-primary me-1 py-0 px-1"
-                        title="View details" onclick="openViewModal('${s.student_id}')">
+    tbody.innerHTML = students.map((student, index) => {
+        const gpa = Number(student.gpa || 0);
+        const safeName = esc(student.name || 'Mahasiswa');
+        const safeStatus = esc(student.status || 'Status belum tersedia');
+        const initial = esc((student.name || '?').trim().charAt(0).toUpperCase() || '?');
+        const actions = isAdmin ? `
+            <td class="text-center" style="white-space: nowrap;">
+                <button class="btn btn-sm btn-outline-primary action-icon me-1" title="Lihat detail" onclick="openViewModal('${student.student_id}')">
                     <i class="bi bi-eye"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-warning me-1 py-0 px-1"
-                        title="Edit" onclick="openEditModal('${s.student_id}')">
+                <button class="btn btn-sm btn-outline-warning action-icon me-1" title="Edit" onclick="openEditModal('${student.student_id}')">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-danger py-0 px-1"
-                        title="Delete" onclick="openDeleteModal('${s.student_id}', '${esc(s.name)}')">
+                <button class="btn btn-sm btn-outline-danger action-icon" title="Hapus" onclick="openDeleteModal('${student.student_id}', '${safeName}')">
                     <i class="bi bi-trash3"></i>
                 </button>
             </td>
-            ` : ''}
-        </tr>
-    `).join('');
+        ` : '';
+
+        return `
+            <tr>
+                <td class="text-muted small">${index + 1}</td>
+                <td><span class="student-code">${esc(student.student_id)}</span></td>
+                <td>
+                    <div class="student-identity">
+                        <span class="student-avatar-mini">${initial}</span>
+                        <div>
+                            <div class="student-name">${safeName}</div>
+                            <div class="student-subline">${safeStatus}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>${formatBirthDate(student.birth_date)}</td>
+                <td class="text-muted small">${esc(student.email)}</td>
+                <td class="small">${esc(student.education_level || '—')}</td>
+                <td><span class="table-chip">${esc(student.major)}</span></td>
+                <td><span class="gpa-badge ${gpaClass(gpa)}">${gpa.toFixed(2)}</span></td>
+                <td><span class="grade-pill">${student.semester ?? '—'}</span></td>
+                ${actions}
+            </tr>
+        `;
+    }).join('');
 }
 
-/**
- * Recompute and display aggregate statistics.
- * @param {Array} students
- */
-function updateStats(students) {
+function updateTopbarCount(students) {
+    document.getElementById('nav-count').textContent = `${students.length} mahasiswa`;
+}
+
+function renderDashboard(students) {
     const total = students.length;
-    const navCount = document.getElementById('nav-count');
-    navCount.textContent = `${total} mahasiswa`;
+    const averageGpa = total
+        ? students.reduce((sum, student) => sum + Number(student.gpa || 0), 0) / total
+        : 0;
+    const deansCount = students.filter(student => Number(student.gpa || 0) >= 3.5).length;
+
+    const majorGroups = groupBy(students, student => normalizeLabel(student.major, 'Belum diisi'));
+    const sortedMajors = [...majorGroups.entries()].sort((left, right) => right[1].length - left[1].length);
+    const topMajor = sortedMajors[0];
+
+    document.getElementById('dashboard-total').textContent = String(total);
+    document.getElementById('dashboard-average-gpa').textContent = averageGpa.toFixed(2);
+    document.getElementById('dashboard-average-gpa-meta').textContent = total
+        ? `Nilai rerata seluruh mahasiswa pada ${majorGroups.size || 0} jurusan.`
+        : 'Belum ada data untuk diringkas.';
+    document.getElementById('dashboard-deans-count').textContent = String(deansCount);
+    document.getElementById('dashboard-deans-meta').textContent = total
+        ? `${percentage(deansCount, total)}% dari total mahasiswa berada di Dean's List.`
+        : 'Mahasiswa dengan IPK minimal 3.50 akan muncul di sini.';
+    document.getElementById('dashboard-top-major').textContent = topMajor ? topMajor[0] : 'Belum ada';
+    document.getElementById('dashboard-top-major-meta').textContent = topMajor
+        ? `${topMajor[1].length} mahasiswa paling dominan di jurusan ini.`
+        : 'Jurusan dengan populasi terbanyak akan tampil di sini.';
+
+    renderGpaDistribution(students);
+    renderMajorRadar(sortedMajors);
+    renderSemesterChart(students);
+    renderMajorComposition(sortedMajors, total);
 }
 
-/* ═══════════════════════════════ Add Modal ══════════════════════════════════ */
+function renderGpaDistribution(students) {
+    const ranges = [
+        { label: '<2.5', min: 0, max: 2.5 },
+        { label: '2.5 - 2.99', min: 2.5, max: 3.0 },
+        { label: '3.0 - 3.49', min: 3.0, max: 3.5 },
+        { label: '3.5 - 3.74', min: 3.5, max: 3.75 },
+        { label: '3.75 - 4.0', min: 3.75, max: 4.01 },
+    ];
 
-/** Open the Add Student modal with a blank form. */
+    const counts = ranges.map(range => students.filter(student => {
+        const gpa = Number(student.gpa || 0);
+        return gpa >= range.min && gpa < range.max;
+    }).length);
+
+    renderChart('gpaDistribution', 'gpa-distribution-chart', {
+        type: 'bar',
+        data: {
+            labels: ranges.map(range => range.label),
+            datasets: [{
+                data: counts,
+                backgroundColor: ['#cfd7ff', '#b7d3ff', '#8ac0ff', '#69a9ff', '#4f7fff'],
+                borderRadius: 18,
+                borderSkipped: false,
+                maxBarThickness: 40,
+            }],
+        },
+        options: buildChartOptions({
+            yTicksPrecision: 0,
+            yMin: 0,
+            yMax: 11,
+            yStepSize: 1,
+            showLegend: false,
+        }),
+    });
+
+    const gpaBandList = document.getElementById('gpa-band-list');
+    if (gpaBandList) {
+        gpaBandList.innerHTML = ranges.map((range, index) => `
+            <span class="dashboard-chip">
+                <strong>${range.label}</strong>
+                <span>${counts[index]} mahasiswa</span>
+            </span>
+        `).join('');
+    }
+}
+
+function renderMajorRadar(sortedMajors) {
+    const labels = sortedMajors.map(([major]) => major);
+    const averages = sortedMajors.map(([, students]) => averageOf(students.map(student => Number(student.gpa || 0))));
+
+    renderChart('majorRadar', 'major-radar-chart', {
+        type: 'radar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Rata-rata IPK',
+                data: averages,
+                backgroundColor: 'rgba(102, 168, 255, 0.18)',
+                borderColor: '#4F8CFF',
+                pointBackgroundColor: '#4F8CFF',
+                pointBorderColor: '#ffffff',
+                pointHoverBackgroundColor: '#ffffff',
+                pointHoverBorderColor: '#4F8CFF',
+                borderWidth: 2,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+            },
+            scales: {
+                r: {
+                    suggestedMin: 0,
+                    suggestedMax: 4,
+                    angleLines: { color: 'rgba(104, 132, 255, 0.14)' },
+                    grid: { color: 'rgba(104, 132, 255, 0.16)' },
+                    pointLabels: { color: '#5D6883', font: { size: 11, weight: 700 } },
+                    ticks: {
+                        backdropColor: 'transparent',
+                        color: '#74809B',
+                        stepSize: 1,
+                    },
+                },
+            },
+        },
+    });
+
+    document.getElementById('major-average-list').innerHTML = sortedMajors.length
+        ? sortedMajors.map((entry, index) => {
+            const [major, students] = entry;
+            return `
+                <div class="dashboard-list-row">
+                    <span class="dashboard-list-label">${esc(major)}</span>
+                    <span class="dashboard-list-value" style="color: ${CHART_COLORS[index % CHART_COLORS.length]};">${averageOf(students.map(student => Number(student.gpa || 0))).toFixed(2)}</span>
+                </div>
+            `;
+        }).join('')
+        : emptyDashboardState('Belum ada jurusan untuk dibandingkan.');
+}
+
+function renderSemesterChart(students) {
+    const semesterCounts = groupBy(
+        students.filter(student => Number.isFinite(Number(student.semester)) && Number(student.semester) > 0),
+        student => Number(student.semester)
+    );
+
+    const sortedSemesters = [...semesterCounts.entries()].sort((left, right) => left[0] - right[0]);
+    const labels = sortedSemesters.map(([semester]) => `Sem ${semester}`);
+    const counts = sortedSemesters.map(([, entries]) => entries.length);
+
+    renderChart('semesterBar', 'semester-chart', {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                data: counts,
+                backgroundColor: ['#A7E8CF', '#7EDCB9', '#57D0A4', '#38C999', '#2DB78A', '#239D75'],
+                borderRadius: 18,
+                borderSkipped: false,
+                maxBarThickness: 36,
+            }],
+        },
+        options: buildChartOptions({ yTicksPrecision: 0, showLegend: false }),
+    });
+}
+
+function renderMajorComposition(sortedMajors, total) {
+    const labels = sortedMajors.map(([major]) => major);
+    const counts = sortedMajors.map(([, students]) => students.length);
+    const colors = labels.map((_, index) => CHART_COLORS[index % CHART_COLORS.length]);
+
+    renderChart('majorDoughnut', 'major-doughnut-chart', {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data: counts,
+                backgroundColor: colors,
+                borderWidth: 0,
+                hoverOffset: 6,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '68%',
+            plugins: {
+                legend: { display: false },
+            },
+        },
+    });
+
+    document.getElementById('major-total-count').textContent = String(total);
+    document.getElementById('major-share-list').innerHTML = sortedMajors.length
+        ? sortedMajors.map((entry, index) => {
+            const [major, students] = entry;
+            const percent = percentage(students.length, total);
+            const color = colors[index];
+            return `
+                <div class="progress-row">
+                    <div class="progress-row-head">
+                        <span class="progress-label">
+                            <span class="progress-dot" style="background: ${color};"></span>
+                            <span>${esc(major)}</span>
+                        </span>
+                        <span class="progress-value">${percent}%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-bar" style="width: ${percent}%; background: ${color};"></div>
+                    </div>
+                </div>
+            `;
+        }).join('')
+        : emptyDashboardState('Belum ada komposisi jurusan.');
+}
+
+function renderChart(key, canvasId, config) {
+    if (typeof Chart === 'undefined') {
+        return;
+    }
+
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        return;
+    }
+
+    if (dashboardCharts[key]) {
+        dashboardCharts[key].destroy();
+    }
+
+    dashboardCharts[key] = new Chart(canvas, config);
+}
+
+function buildChartOptions({ yTicksPrecision = null, yMin = null, yMax = null, yStepSize = null, showLegend = false } = {}) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: showLegend },
+            tooltip: {
+                backgroundColor: 'rgba(26, 36, 64, 0.92)',
+                titleFont: { family: 'Plus Jakarta Sans', weight: 700 },
+                bodyFont: { family: 'Plus Jakarta Sans' },
+                padding: 12,
+            },
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                border: { display: false },
+                ticks: { color: '#69758E', font: { family: 'Plus Jakarta Sans', weight: 700 } },
+            },
+            y: {
+                beginAtZero: true,
+                min: yMin,
+                max: yMax,
+                grid: { color: 'rgba(104, 132, 255, 0.12)' },
+                border: { display: false },
+                ticks: {
+                    color: '#7A86A2',
+                    precision: yTicksPrecision,
+                    stepSize: yStepSize,
+                    font: { family: 'Plus Jakarta Sans', weight: 700 },
+                },
+            },
+        },
+    };
+}
+
+function showStudentsHome({ resetForms = true, closePanels = true } = {}) {
+    if (resetForms) {
+        document.getElementById('search-form').reset();
+        document.getElementById('sort-form').reset();
+        updateAlgoHint();
+    }
+
+    hideResultInfo();
+
+    if (closePanels) {
+        ['searchPanel', 'sortPanel'].forEach(id => {
+            const element = document.getElementById(id);
+            bootstrap.Collapse.getOrCreateInstance(element, { toggle: false }).hide();
+        });
+    }
+
+    displayedStudents = [...allStudents];
+    renderTable(displayedStudents);
+    setViewLabel('Semua Mahasiswa', 'primary');
+}
+
 function openAddModal() {
     editingId = null;
 
@@ -152,15 +462,9 @@ function openAddModal() {
     studentModal.show();
 }
 
-/* ═══════════════════════════════ Edit Modal ═════════════════════════════════ */
-
-/**
- * Open the Edit Student modal pre-filled with the student's current data.
- * @param {string} student_id
- */
 function openEditModal(student_id) {
-    const s = findStudent(student_id);
-    if (!s) return;
+    const student = findStudent(student_id);
+    if (!student) return;
 
     editingId = student_id;
 
@@ -170,64 +474,59 @@ function openEditModal(student_id) {
         '<i class="bi bi-floppy me-1"></i> Simpan Perubahan';
     hideFormErrors();
 
-    // Populate form fields
-    document.getElementById('f-student_id').value    = s.student_id;
-    document.getElementById('f-student_id').disabled = true;  // ID is immutable
-    document.getElementById('f-name').value           = s.name;
-    document.getElementById('f-age').value            = s.age;
-    document.getElementById('f-email').value          = s.email;
-    document.getElementById('f-phone').value          = s.phone;
-    document.getElementById('f-major').value          = s.major;
-    document.getElementById('f-gpa').value            = s.gpa;
-    document.getElementById('f-address').value        = s.address || '';
+    document.getElementById('f-student_id').value = student.student_id;
+    document.getElementById('f-student_id').disabled = true;
+    document.getElementById('f-name').value = student.name;
+    document.getElementById('f-birth_date').value = student.birth_date || '';
+    document.getElementById('f-email').value = student.email;
+    document.getElementById('f-phone').value = student.phone;
+    document.getElementById('f-education_level').value = student.education_level || '';
+    document.getElementById('f-major').value = student.major;
+    document.getElementById('f-gpa').value = student.gpa;
+    document.getElementById('f-semester').value = student.semester ?? '';
 
     studentModal.show();
 }
 
-/* ═══════════════════════════════ Form Submit ════════════════════════════════ */
-
-/**
- * Handle Add / Edit form submission.
- * Sends the payload to the server; displays validation errors inline.
- * @param {Event} e - Form submit event
- */
 async function submitStudentForm(e) {
     e.preventDefault();
     hideFormErrors();
 
+    const semesterValue = document.getElementById('f-semester').value.trim();
+
     const payload = {
         student_id: document.getElementById('f-student_id').value.trim(),
-        name:       document.getElementById('f-name').value.trim(),
-        age:        parseInt(document.getElementById('f-age').value, 10),
-        email:      document.getElementById('f-email').value.trim(),
-        phone:      document.getElementById('f-phone').value.trim(),
-        major:      document.getElementById('f-major').value.trim(),
-        gpa:        parseFloat(document.getElementById('f-gpa').value),
-        address:    document.getElementById('f-address').value.trim(),
+        name: document.getElementById('f-name').value.trim(),
+        birth_date: document.getElementById('f-birth_date').value,
+        email: document.getElementById('f-email').value.trim(),
+        phone: document.getElementById('f-phone').value.trim(),
+        education_level: document.getElementById('f-education_level').value,
+        major: document.getElementById('f-major').value.trim(),
+        gpa: parseFloat(document.getElementById('f-gpa').value),
+        semester: semesterValue === '' ? null : parseInt(semesterValue, 10),
     };
 
     const btn = document.getElementById('submit-btn');
-setButtonLoading(btn, true, 'Menyimpan…');
+    setButtonLoading(btn, true, 'Menyimpan…');
 
     try {
         if (editingId) {
             await apiFetch(`/api/students/${editingId}`, {
                 method: 'PUT',
-                body:   JSON.stringify(payload),
+                body: JSON.stringify(payload),
             });
             showToast(`Mahasiswa "${payload.name}" berhasil diperbarui.`, 'success');
         } else {
             await apiFetch('/api/students', {
                 method: 'POST',
-                body:   JSON.stringify(payload),
+                body: JSON.stringify(payload),
             });
             showToast(`Mahasiswa "${payload.name}" berhasil ditambahkan.`, 'success');
         }
+
         studentModal.hide();
         await loadStudents();
-
     } catch (err) {
-        // Show server-side validation errors inside the modal
         showFormErrors(err.message.split('\n'));
     } finally {
         const label = editingId ? 'Simpan Perubahan' : 'Simpan';
@@ -235,20 +534,12 @@ setButtonLoading(btn, true, 'Menyimpan…');
     }
 }
 
-/* ═══════════════════════════════ Delete ════════════════════════════════════ */
-
-/**
- * Open the Delete confirmation modal.
- * @param {string} student_id
- * @param {string} name
- */
 function openDeleteModal(student_id, name) {
     deleteTargetId = student_id;
     document.getElementById('delete-student-name').textContent = name;
     deleteModal.show();
 }
 
-/** Execute the deletion after user confirms. */
 async function confirmDelete() {
     if (!deleteTargetId) return;
 
@@ -268,63 +559,55 @@ async function confirmDelete() {
     }
 }
 
-/* ═══════════════════════════════ View Modal ═════════════════════════════════ */
-
-/**
- * Open the read-only Student Details modal.
- * @param {string} student_id
- */
 function openViewModal(student_id) {
-    const s = findStudent(student_id);
-    if (!s) return;
+    const student = findStudent(student_id);
+    if (!student) return;
 
+    const gpa = Number(student.gpa || 0);
     const rows = [
-        ['Usia',          s.age],
-        ['Email',         esc(s.email)],
-        ['Telepon',       esc(s.phone)],
-        ['Jurusan',       esc(s.major)],
-        ['IPK',           `<span class="gpa-badge ${gpaClass(s.gpa)}">${s.gpa.toFixed(2)}</span>`],
-        ['Nilai',         `<span class="badge bg-secondary">${s.grade_letter}</span>`],
-        ['Alamat',        esc(s.address) || '<span class="text-muted">—</span>'],
-        ['Terdaftar',     s.created_at ? new Date(s.created_at).toLocaleString() : '—'],
-    ].map(([label, val]) =>
-        `<div class="detail-row">
+        ['Tanggal Lahir', formatBirthDate(student.birth_date)],
+        ['Email', esc(student.email)],
+        ['Telepon', esc(student.phone)],
+        ['Jenjang Pendidikan', esc(student.education_level || '—')],
+        ['Jurusan', esc(student.major)],
+        ['IPK', `<span class="gpa-badge ${gpaClass(gpa)}">${gpa.toFixed(2)}</span>`],
+        ['Semester', student.semester ?? '<span class="text-muted">—</span>'],
+        ['Status', `<span class="status-pill ${statusClass(student.status)}">${esc(student.status || '—')}</span>`],
+        ['Terdaftar', student.created_at ? formatTimestamp(student.created_at) : '—'],
+    ].map(([label, value]) => `
+        <div class="detail-row">
             <span class="detail-label">${label}</span>
-            <span class="detail-value">${val}</span>
-        </div>`
-    ).join('');
+            <span class="detail-value">${value}</span>
+        </div>
+    `).join('');
 
     document.getElementById('view-modal-body').innerHTML = `
         <div class="d-flex align-items-center gap-3 mb-4">
-            <div class="avatar-circle">${esc(s.name.charAt(0).toUpperCase())}</div>
+            <div class="avatar-circle">${esc((student.name || '?').charAt(0).toUpperCase())}</div>
             <div>
-                <h5 class="mb-0 fw-bold">${esc(s.name)}</h5>
-                <small class="text-muted"><code>${s.student_id}</code></small>
+                <h5 class="mb-0 fw-bold">${esc(student.name)}</h5>
+                <small class="text-muted"><code>${esc(student.student_id)}</code></small>
             </div>
         </div>
         ${rows}
     `;
+
     viewModal.show();
 }
 
-/* ═══════════════════════════════ Search ═════════════════════════════════════ */
-
-/**
- * Execute a search request against the server and render results.
- * @param {Event} e - Form submit event
- */
 async function doSearch(e) {
     e.preventDefault();
 
     const query = document.getElementById('search-query').value.trim();
     const field = document.getElementById('search-field').value;
-    const algo  = document.getElementById('search-algorithm').value;
+    const algo = document.getElementById('search-algorithm').value;
 
     if (!query) return;
 
     showLoading(true);
+
     try {
-        const url    = `/api/students/search?query=${encodeURIComponent(query)}&field=${field}&algorithm=${algo}`;
+        const url = `/api/students/search?query=${encodeURIComponent(query)}&field=${field}&algorithm=${algo}`;
         const result = await apiFetch(url);
 
         displayedStudents = result.data;
@@ -333,27 +616,27 @@ async function doSearch(e) {
 
         const matchType = algo === 'binary' ? 'prefiks (diawali dengan)' : 'substring (mengandung)';
         const info = document.getElementById('search-result-info');
-        info.innerHTML =
-            `<i class="bi bi-info-circle me-1"></i>
-             Algoritma: <strong>${result.algorithm}</strong>&nbsp;|&nbsp;
-             Kecocokan: <strong>${matchType}</strong>&nbsp;|&nbsp;
-             Terbaik: <code>${result.complexity.best}</code>&nbsp;
-             Rata-rata: <code>${result.complexity.avg}</code>&nbsp;
-             Terburuk: <code>${result.complexity.worst}</code>&nbsp;|&nbsp;
-             Waktu: <strong>${result.elapsed_ms} ms</strong>&nbsp;|&nbsp;
-             Ditemukan: <strong>${result.count}</strong> hasil`;
+        info.innerHTML = `
+            <i class="bi bi-info-circle me-1"></i>
+            Algoritma: <strong>${result.algorithm}</strong> | 
+            Kecocokan: <strong>${matchType}</strong> | 
+            Terbaik: <code>${result.complexity.best}</code>
+            Rata-rata: <code>${result.complexity.avg}</code>
+            Terburuk: <code>${result.complexity.worst}</code> | 
+            Waktu: <strong>${result.elapsed_ms} ms</strong> | 
+            Ditemukan: <strong>${result.count}</strong> hasil
+        `;
         info.classList.remove('d-none');
-
     } catch (err) {
         showToast('Pencarian gagal: ' + err.message, 'danger');
         showLoading(false);
     }
 }
 
-/** Update the algorithm hint text based on selected algorithm. */
 function updateAlgoHint() {
     const algo = document.getElementById('search-algorithm').value;
     const hint = document.getElementById('algo-hint');
+
     if (algo === 'binary') {
         hint.innerHTML = 'Mencocokkan data yang <strong>diawali dengan</strong> kata kunci (prefiks saja).';
     } else {
@@ -361,55 +644,47 @@ function updateAlgoHint() {
     }
 }
 
-/** Reset the search UI and show all students. */
 function clearSearch() {
     document.getElementById('search-form').reset();
     document.getElementById('search-result-info').classList.add('d-none');
+    updateAlgoHint();
     displayedStudents = [...allStudents];
     renderTable(displayedStudents);
     setViewLabel('Semua Mahasiswa', 'primary');
 }
 
-/* ═══════════════════════════════ Sort ═══════════════════════════════════════ */
-
-/**
- * Execute a sort request against the server and render results.
- * @param {Event} e - Form submit event
- */
 async function doSort(e) {
     e.preventDefault();
 
     const field = document.getElementById('sort-field').value;
-    const algo  = document.getElementById('sort-algorithm').value;
+    const algo = document.getElementById('sort-algorithm').value;
     const order = document.getElementById('sort-order').value;
 
     showLoading(true);
+
     try {
-        const url    = `/api/students/sort?algorithm=${algo}&field=${field}&order=${order}`;
+        const url = `/api/students/sort?algorithm=${algo}&field=${field}&order=${order}`;
         const result = await apiFetch(url);
 
         displayedStudents = result.data;
         renderTable(displayedStudents);
-
-        const dir = order === 'asc' ? '↑' : '↓';
-        setViewLabel(`Diurutkan: ${field} ${dir} (${algo})`, 'warning');
+        setViewLabel(`Diurutkan: ${humanizeField(field)} ${order === 'asc' ? '↑' : '↓'} (${algo})`, 'warning');
 
         const info = document.getElementById('sort-result-info');
-        info.innerHTML =
-            `<i class="bi bi-info-circle me-1"></i>
-             Algoritma: <strong>${result.algorithm}</strong>&nbsp;|&nbsp;
-             Waktu: <code>${result.time_complexity}</code>&nbsp;
-             Ruang: <code>${result.space_complexity}</code>&nbsp;|&nbsp;
-             Durasi: <strong>${result.elapsed_ms} ms</strong>`;
+        info.innerHTML = `
+            <i class="bi bi-info-circle me-1"></i>
+            Algoritma: <strong>${result.algorithm}</strong> | 
+            Waktu: <code>${result.time_complexity}</code>
+            Ruang: <code>${result.space_complexity}</code> | 
+            Durasi: <strong>${result.elapsed_ms} ms</strong>
+        `;
         info.classList.remove('d-none');
-
     } catch (err) {
         showToast('Pengurutan gagal: ' + err.message, 'danger');
         showLoading(false);
     }
 }
 
-/** Reset sort UI and restore original order. */
 function clearSort() {
     document.getElementById('sort-form').reset();
     document.getElementById('sort-result-info').classList.add('d-none');
@@ -418,12 +693,6 @@ function clearSort() {
     setViewLabel('Semua Mahasiswa', 'primary');
 }
 
-/* ═══════════════════════════════ UI Utilities ═══════════════════════════════ */
-
-/**
- * Toggle the loading spinner vs. the data table.
- * @param {boolean} show
- */
 function showLoading(show) {
     document.getElementById('loading-state').classList.toggle('d-none', !show);
     if (show) {
@@ -432,65 +701,43 @@ function showLoading(show) {
     }
 }
 
-/**
- * Update the "view mode" badge above the table.
- * @param {string} text    - Label text
- * @param {string} variant - Bootstrap colour variant (primary, info, warning …)
- */
 function setViewLabel(text, variant) {
     const el = document.getElementById('view-mode-label');
-    el.className  = `badge bg-${variant} px-3`;
+    el.className = `view-chip view-chip-${variant}`;
     el.textContent = text;
 }
 
-/**
- * Disable a button and show a spinner while an async operation runs.
- * @param {HTMLButtonElement} btn
- * @param {boolean}           loading
- * @param {string}            label - HTML string for the restored label
- */
 function setButtonLoading(btn, loading, label) {
     if (loading) {
-        btn.disabled   = true;
-        btn.innerHTML  = '<span class="spinner-border spinner-border-sm me-1"></span>…';
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>…';
     } else {
-        btn.disabled  = false;
+        btn.disabled = false;
         btn.innerHTML = label;
     }
 }
 
-/** Show inline validation errors inside the student modal. */
 function showFormErrors(messages) {
     const el = document.getElementById('form-errors');
-    el.innerHTML = messages.map(m => `<div>• ${esc(m)}</div>`).join('');
+    el.innerHTML = messages.map(message => `<div>• ${esc(message)}</div>`).join('');
     el.classList.remove('d-none');
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-/** Hide the inline error block inside the student modal. */
 function hideFormErrors() {
     document.getElementById('form-errors').classList.add('d-none');
 }
 
-/* ─────────────────────── DOM helpers ──────────────────────────────────────── */
-
-/**
- * Find a student object by ID from either the full or displayed list.
- * @param {string} student_id
- * @returns {object|undefined}
- */
-function findStudent(student_id) {
-    return (
-        allStudents.find(s => s.student_id === student_id) ||
-        displayedStudents.find(s => s.student_id === student_id)
-    );
+function hideResultInfo() {
+    document.getElementById('search-result-info').classList.add('d-none');
+    document.getElementById('sort-result-info').classList.add('d-none');
 }
 
-/**
- * Return the CSS class name for a GPA badge based on the GPA value.
- * @param {number} gpa
- * @returns {string}
- */
+function findStudent(student_id) {
+    return allStudents.find(student => student.student_id === student_id)
+        || displayedStudents.find(student => student.student_id === student_id);
+}
+
 function gpaClass(gpa) {
     if (gpa >= 3.0) return 'gpa-a';
     if (gpa >= 2.5) return 'gpa-b';
@@ -498,26 +745,92 @@ function gpaClass(gpa) {
     return 'gpa-d';
 }
 
-/**
- * Return the CSS class name for a status badge.
- * @param {string} status
- * @returns {string}
- */
 function statusClass(status) {
     const map = {
-        "Dean's List":         'status-deans',
-        "Good Standing":       'status-good',
-        "Academic Probation":  'status-probation',
-        "Academic Suspension": 'status-suspension',
+        "Dean's List": 'status-deans',
+        'Good Standing': 'status-good',
+        'Academic Probation': 'status-probation',
+        'Academic Suspension': 'status-suspension',
     };
-    return map[status] || 'bg-secondary text-white';
+
+    return map[status] || 'status-good';
 }
 
-/**
- * Escape HTML special characters to prevent XSS.
- * @param {*} str
- * @returns {string}
- */
+function formatTimestamp(value) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+        ? '—'
+        : new Intl.DateTimeFormat('id-ID', {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+        }).format(date);
+}
+
+function formatBirthDate(value) {
+    if (!value) {
+        return '—';
+    }
+
+    const [year, month, day] = String(value).split('-');
+    if (!year || !month || !day) {
+        return esc(value);
+    }
+
+    return `${day}/${month}/${year}`;
+}
+
+function humanizeField(field) {
+    const map = {
+        name: 'nama',
+        student_id: 'NIM',
+        gpa: 'IPK',
+        age: 'usia',
+        birth_date: 'tanggal lahir',
+        education_level: 'jenjang pendidikan',
+        major: 'jurusan',
+        email: 'email',
+    };
+
+    return map[field] || field;
+}
+
+function groupBy(items, keyFn) {
+    const map = new Map();
+
+    items.forEach(item => {
+        const key = keyFn(item);
+        const bucket = map.get(key) || [];
+        bucket.push(item);
+        map.set(key, bucket);
+    });
+
+    return map;
+}
+
+function normalizeLabel(value, fallback = 'Tidak diketahui') {
+    return value && String(value).trim() ? String(value).trim() : fallback;
+}
+
+function averageOf(values) {
+    if (!values.length) {
+        return 0;
+    }
+
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function percentage(value, total) {
+    if (!total) {
+        return 0;
+    }
+
+    return Math.round((value / total) * 100);
+}
+
+function emptyDashboardState(message) {
+    return `<div class="dashboard-list-row"><span class="dashboard-list-label">${esc(message)}</span></div>`;
+}
+
 function esc(str) {
     if (str === null || str === undefined) return '';
     return String(str)
@@ -528,46 +841,38 @@ function esc(str) {
         .replace(/'/g, '&#39;');
 }
 
-/* ─────────────────────── Toast notifications ───────────────────────────────── */
-
 const _TOAST_ICONS = {
     success: 'bi-check-circle-fill',
-    danger:  'bi-x-circle-fill',
+    danger: 'bi-x-circle-fill',
     warning: 'bi-exclamation-triangle-fill',
-    info:    'bi-info-circle-fill',
+    info: 'bi-info-circle-fill',
 };
 
-/**
- * Display a self-dismissing Bootstrap Toast notification.
- * @param {string} message
- * @param {'success'|'danger'|'warning'|'info'} type
- */
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
-    const id        = `toast-${Date.now()}`;
-    const icon      = _TOAST_ICONS[type] || 'bi-info-circle-fill';
+    const id = `toast-${Date.now()}`;
+    const icon = _TOAST_ICONS[type] || 'bi-info-circle-fill';
 
     container.insertAdjacentHTML('beforeend', `
-        <div id="${id}" class="toast align-items-center text-bg-${type} border-0"
-             role="alert" aria-live="assertive">
+        <div id="${id}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive">
             <div class="d-flex">
                 <div class="toast-body d-flex align-items-center gap-2">
                     <i class="bi ${icon}"></i>
                     ${esc(message)}
                 </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto"
-                        data-bs-dismiss="toast" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>
         </div>
     `);
 
     const toastEl = document.getElementById(id);
-    const toast   = new bootstrap.Toast(toastEl, { delay: 3500 });
+    const toast = new bootstrap.Toast(toastEl, { delay: 3500 });
     toast.show();
-    // Clean up DOM after the toast hides
     toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
 }
 
-/* ═══════════════════════════════ Initialise ═════════════════════════════════ */
-
-document.addEventListener('DOMContentLoaded', loadStudents);
+document.addEventListener('DOMContentLoaded', () => {
+    switchSection('dashboard');
+    updateAlgoHint();
+    loadStudents();
+});

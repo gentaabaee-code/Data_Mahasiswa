@@ -18,7 +18,7 @@ import json
 import os
 from typing import List, Optional
 
-from models.student import Student
+from models.student import Student, generate_default_student_profile
 
 
 class StudentManager:
@@ -126,6 +126,50 @@ class StudentManager:
         """Return total number of students. O(1)."""
         return len(self._students)
 
+    def backfill_missing_semesters(self, start: int = 3, end: int = 7) -> int:
+        """Assign default semester values to students that do not have one yet."""
+        if start > end:
+            raise ValueError("Start semester cannot be greater than end semester.")
+
+        updated = 0
+        span = end - start + 1
+
+        for index, student in enumerate(self._students):
+            if student.semester is not None:
+                continue
+
+            student.semester = start + (index % span)
+            updated += 1
+
+        if updated:
+            self._save_to_file()
+
+        return updated
+
+    def backfill_missing_profiles(self) -> int:
+        """Assign default birth dates and education levels to incomplete records."""
+        updated = 0
+
+        for student in self._students:
+            default_birth_date, default_education_level = generate_default_student_profile(student.student_id)
+            changed = False
+
+            if not student.birth_date:
+                student.birth_date = default_birth_date
+                changed = True
+
+            if not student.education_level:
+                student.education_level = default_education_level
+                changed = True
+
+            if changed:
+                updated += 1
+
+        if updated:
+            self._save_to_file()
+
+        return updated
+
     # ═════════════════════════════════ CREATE ════════════════════════════════
 
     def add_student(self, data: dict) -> Student:
@@ -166,11 +210,13 @@ class StudentManager:
         # Apply only the fields present in the incoming payload
         if "name"    in data: student.name    = data["name"]
         if "age"     in data: student.age     = int(data["age"])
+        if "birth_date" in data: student.birth_date = data["birth_date"]
         if "email"   in data: student.email   = data["email"]
         if "phone"   in data: student.phone   = data["phone"]
+        if "education_level" in data: student.education_level = data["education_level"]
         if "major"   in data: student.major   = data["major"]
         if "gpa"     in data: student.gpa     = float(data["gpa"])
-        if "address" in data: student.address = data["address"]
+        if "semester" in data: student.semester = data["semester"]
 
         self._save_to_file()
         return student

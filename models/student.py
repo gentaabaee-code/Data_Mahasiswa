@@ -9,7 +9,39 @@ Student data models demonstrating core OOP principles:
 ─────────────────────────────────────────────────────────────────────────────
 """
 
-from datetime import datetime, timezone
+import random
+from datetime import date, datetime, timezone
+
+
+DEFAULT_EDUCATION_LEVELS: tuple[str, ...] = ("D3", "D4", "S1", "S2", "S3")
+
+
+def _parse_birth_date(value: str) -> date:
+    try:
+        return date.fromisoformat(str(value).strip())
+    except ValueError as exc:
+        raise ValueError("Birth date must use the YYYY-MM-DD format.") from exc
+
+
+def _calculate_age_from_birth_date(value: str) -> int:
+    birth_date = _parse_birth_date(value)
+    today = datetime.now(timezone.utc).date()
+
+    if birth_date > today:
+        raise ValueError("Birth date cannot be in the future.")
+
+    age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+    if not (0 < age < 150):
+        raise ValueError("Birth date must produce a valid age.")
+    return age
+
+
+def generate_default_student_profile(seed_value: str) -> tuple[str, str]:
+    rng = random.Random(str(seed_value))
+    year = rng.randint(2000, 2005)
+    month = rng.randint(1, 12)
+    day = rng.randint(1, 28)
+    return f"{year:04d}-{month:02d}-{day:02d}", rng.choice(DEFAULT_EDUCATION_LEVELS)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -111,19 +143,35 @@ class Student(Person):
         self,
         student_id: str,
         name: str,
-        age: int,
+        age: int | None,
         email: str,
         phone: str,
         major: str,
         gpa: float,
-        address: str = "",
+        semester: int | None = None,
+        birth_date: str | None = None,
+        education_level: str | None = None,
     ) -> None:
-        super().__init__(name, age, email)       # Invoke parent __init__
+        resolved_age: int | None = None
+        if birth_date is not None and str(birth_date).strip():
+            resolved_age = _calculate_age_from_birth_date(birth_date)
+        elif age is not None and str(age).strip() != "":
+            resolved_age = int(age)
+
+        if resolved_age is None:
+            raise ValueError("Student requires either an age or a birth date.")
+
+        super().__init__(name, resolved_age, email)       # Invoke parent __init__
         self._student_id: str   = student_id
         self._phone: str        = phone
         self._major: str        = major
         self._gpa: float        = round(float(gpa), 2)
-        self._address: str      = address
+        self._semester: int | None = None
+        self._birth_date: str | None = None
+        self._education_level: str | None = None
+        self.semester = semester
+        self.birth_date = birth_date
+        self.education_level = education_level
 
     # ── student_id (read-only after creation) ─────────────────────────────
     @property
@@ -160,14 +208,54 @@ class Student(Person):
             raise ValueError("GPA must be between 0.0 and 4.0.")
         self._gpa = value
 
-    # ── address ───────────────────────────────────────────────────────────
+    # ── semester ──────────────────────────────────────────────────────────
     @property
-    def address(self) -> str:
-        return self._address
+    def semester(self) -> int | None:
+        return self._semester
 
-    @address.setter
-    def address(self, value: str) -> None:
-        self._address = value.strip()
+    @semester.setter
+    def semester(self, value: int | None) -> None:
+        if value is None or str(value).strip() == "":
+            self._semester = None
+            return
+
+        semester = int(value)
+        if not (1 <= semester <= 14):
+            raise ValueError("Semester must be between 1 and 14.")
+        self._semester = semester
+
+    # ── birth_date ────────────────────────────────────────────────────────
+    @property
+    def birth_date(self) -> str | None:
+        return self._birth_date
+
+    @birth_date.setter
+    def birth_date(self, value: str | None) -> None:
+        if value is None or not str(value).strip():
+            self._birth_date = None
+            return
+
+        normalized = _parse_birth_date(value).isoformat()
+        Person.age.fset(self, _calculate_age_from_birth_date(normalized))
+        self._birth_date = normalized
+
+    # ── education_level ───────────────────────────────────────────────────
+    @property
+    def education_level(self) -> str | None:
+        return self._education_level
+
+    @education_level.setter
+    def education_level(self, value: str | None) -> None:
+        if value is None or not str(value).strip():
+            self._education_level = None
+            return
+
+        normalized = str(value).strip().upper()
+        if normalized not in DEFAULT_EDUCATION_LEVELS:
+            raise ValueError(
+                "Education level must be one of D3, D4, S1, S2, or S3."
+            )
+        self._education_level = normalized
 
     # ── Computed / derived properties ─────────────────────────────────────
     def get_grade_letter(self) -> str:
@@ -207,10 +295,12 @@ class Student(Person):
         data = super().to_dict()          # Inherit Person fields
         data.update({
             "student_id":   self._student_id,
+            "birth_date":   self._birth_date,
             "phone":        self._phone,
+            "education_level": self._education_level,
             "major":        self._major,
             "gpa":          self._gpa,
-            "address":      self._address,
+            "semester":     self._semester,
             "grade_letter": self.get_grade_letter(),   # Computed field
             "status":       self.get_status(),         # Computed field
         })
@@ -226,12 +316,14 @@ class Student(Person):
         student = cls(
             student_id = data["student_id"],
             name       = data["name"],
-            age        = int(data["age"]),
+            age        = int(data["age"]) if data.get("age") not in (None, "") else None,
             email      = data["email"],
             phone      = data["phone"],
             major      = data["major"],
             gpa        = float(data["gpa"]),
-            address    = data.get("address", ""),
+            semester   = data.get("semester"),
+            birth_date = data.get("birth_date"),
+            education_level = data.get("education_level"),
         )
         # Preserve the original creation timestamp if available
         if "created_at" in data:

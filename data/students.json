@@ -206,5 +206,18 @@
     "address": "Alamat Bebas",
     "grade_letter": "A-",
     "status": "Dean's List"
+  },
+  {
+    "name": "Kodir Jaelani",
+    "age": 40,
+    "email": "kodir.jaelani@gmail.com",
+    "created_at": "2026-05-08T06:17:12.183573+00:00",
+    "student_id": "241011450101",
+    "phone": "123456789",
+    "major": "Teknik Informatika",
+    "gpa": 3.4,
+    "address": "",
+    "grade_letter": "A-",
+    "status": "Good Standing"
   }
 ]

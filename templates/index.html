@@ -3,221 +3,359 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sistem Manajemen Data Mahasiswa</title>
-  <!-- Bootstrap 5.3 -->
+  <title>Simanis Unpam</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/Logo.png') }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bree+Serif&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
-  <!-- Bootstrap Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-  <!-- Custom styles -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
 <body>
-
-<!-- ═══════════════════════ NAVBAR ═══════════════════════════════════════ -->
-<nav class="navbar navbar-dark navbar-expand-lg">
-  <div class="container-fluid px-4">
-    <a class="navbar-brand d-flex align-items-center gap-2" href="#">
-      <i class="bi bi-mortarboard-fill fs-4"></i>
-      <span class="fw-bold">Sistem Manajemen Data Mahasiswa</span>
-    </a>
-    <div class="d-flex align-items-center gap-3 ms-auto">
-      <span id="nav-count" class="badge bg-light text-dark px-3 py-2">Memuat…</span>
-      {% if current_user.is_authenticated %}
-        {% if current_user.is_super_admin %}
-          <a class="btn btn-outline-light btn-sm" href="{{ url_for('admin_users') }}">Super Admin</a>
-        {% elif current_user.is_admin %}
-          <span class="badge bg-info text-dark px-3 py-2">Admin</span>
-        {% endif %}
-        <a class="btn btn-outline-light btn-sm" href="{{ url_for('logout') }}">Logout</a>
-      {% else %}
-        <a class="btn btn-outline-light btn-sm" href="{{ url_for('login') }}">Login</a>
-      {% endif %}
-    </div>
-  </div>
-</nav>
-
-<div class="container-fluid px-4 py-4">
-
-  <!-- ═══════════════════ ACTION BAR + PANELS ════════════════════════════ -->
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-body d-flex flex-wrap gap-2 align-items-center">
-      {% if current_user.is_authenticated and current_user.is_admin %}
-        <button class="btn btn-primary" onclick="openAddModal()">
-          <i class="bi bi-plus-circle me-1"></i> Tambah Mahasiswa
-        </button>
-      {% endif %}
-      <button class="btn btn-outline-secondary" onclick="loadStudents()">
-        <i class="bi bi-arrow-clockwise me-1"></i> Segarkan
-      </button>
-      <div class="ms-auto d-flex gap-2 flex-wrap">
-        <button class="btn btn-outline-info" data-bs-toggle="collapse" data-bs-target="#searchPanel" aria-expanded="false">
-          <i class="bi bi-search me-1"></i> Cari
-        </button>
-        <button class="btn btn-outline-warning" data-bs-toggle="collapse" data-bs-target="#sortPanel" aria-expanded="false">
-          <i class="bi bi-sort-alpha-down me-1"></i> Urutkan
-        </button>
-        {% if current_user.is_authenticated %}
-        <div class="dropdown">
-          <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-            <i class="bi bi-download me-1"></i> Export
-          </button>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="{{ url_for('export_students_excel') }}" target="_blank">
-              <i class="bi bi-file-earmark-excel me-2"></i> Export ke Excel
-            </a></li>
-            <li><a class="dropdown-item" href="{{ url_for('export_students_pdf') }}" target="_blank">
-              <i class="bi bi-file-earmark-pdf me-2"></i> Export ke PDF
-            </a></li>
-          </ul>
+  <div class="app-shell">
+    <aside class="app-sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-badge">
+          <img src="{{ url_for('static', filename='images/Logo.png') }}" alt="Logo UNPAM" class="brand-logo" />
         </div>
-        {% endif %}
+        <div class="brand-copy">
+          <span class="brand-kicker">SIMANIS</span>
+          <strong class="brand-title">Sistem Manajemen Data Mahasiswa</strong>
+        </div>
       </div>
-    </div>
 
-    <!-- Search Panel -->
-    <div class="collapse" id="searchPanel">
-      <div class="card-footer border-top panel-search">
-        <div class="panel-title mb-3"><i class="bi bi-search me-1"></i> Cari Mahasiswa</div>
-        <form onsubmit="doSearch(event)" id="search-form">
-          <div class="row g-2 align-items-end">
-            <div class="col-md-4">
-              <label class="form-label small fw-semibold">Kata Kunci</label>
-              <input type="text" class="form-control" id="search-query"
-                     placeholder="Glenadi, 241011450105, Teknik…" required />
+      <div class="sidebar-caption">Menu Utama</div>
+
+      <nav class="sidebar-nav" aria-label="Navigasi utama">
+        <button id="nav-dashboard" class="sidebar-link is-active" type="button" onclick="switchSection('dashboard')">
+          <i class="bi bi-grid-1x2"></i>
+          <span>Dashboard</span>
+        </button>
+        <button id="nav-students" class="sidebar-link" type="button" onclick="switchSection('students')">
+          <i class="bi bi-people"></i>
+          <span>Data Mahasiswa</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-note">
+        Crafted with ❤️ by Glenadi Teguh A UAS Algoritma 2026
+      </div>
+    </aside>
+
+    <main class="app-main">
+      <header class="topbar">
+        <div class="topbar-copy">
+          <div class="topbar-brand">
+            <i class="bi bi-mortarboard-fill topbar-brand-icon"></i>
+            <span class="topbar-brand-title">Dashboard Sistem Manajemen Data Mahasiswa</span>
+          </div>
+          <div class="visually-hidden" aria-hidden="true">
+            <span id="section-kicker" class="topbar-kicker">Panel Analitik</span>
+            <span id="section-title" class="topbar-title">Dashboard</span>
+            <p id="section-subtitle" class="topbar-subtitle">Pantau performa akademik dan pindah ke data mahasiswa lengkap tanpa meninggalkan halaman.</p>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <span id="nav-count" class="topbar-chip">Memuat…</span>
+          {% if current_user.is_authenticated %}
+            {% if current_user.is_super_admin %}
+              <a class="topbar-btn topbar-btn-light" href="{{ url_for('admin_users') }}">Super Admin</a>
+            {% elif current_user.is_admin %}
+              <span class="topbar-chip topbar-chip-accent">Dosen</span>
+            {% endif %}
+            <a class="topbar-btn topbar-btn-outline" href="{{ url_for('logout') }}">Logout</a>
+          {% else %}
+            <a class="topbar-btn topbar-btn-outline" href="{{ url_for('login') }}">Login</a>
+          {% endif %}
+        </div>
+      </header>
+
+      <section id="dashboard-section" class="content-section">
+        <div class="stats-grid">
+          <article class="metric-card metric-indigo">
+            <span class="metric-icon"><i class="bi bi-people-fill"></i></span>
+            <div class="metric-copy">
+              <span class="metric-label">Total Mahasiswa</span>
+              <strong id="dashboard-total" class="metric-value">0</strong>
+              <span class="metric-meta">Seluruh mahasiswa aktif dalam sistem.</span>
             </div>
-            <div class="col-md-3">
-              <label class="form-label small fw-semibold">Cari Berdasarkan</label>
-              <select class="form-select" id="search-field">
-                <option value="name">Nama</option>
-                <option value="student_id">NIM</option>
-                <option value="email">Email</option>
-                <option value="major">Jurusan</option>
-                <option value="phone">Telepon</option>
-              </select>
+          </article>
+
+          <article class="metric-card metric-emerald">
+            <span class="metric-icon"><i class="bi bi-graph-up-arrow"></i></span>
+            <div class="metric-copy">
+              <span class="metric-label">Rata-rata IPK</span>
+              <strong id="dashboard-average-gpa" class="metric-value">0.00</strong>
+              <span id="dashboard-average-gpa-meta" class="metric-meta">Rerata performa akademik terkini.</span>
             </div>
-            <div class="col-md-3">
-              <label class="form-label small fw-semibold">Algoritma</label>
-              <select class="form-select" id="search-algorithm" onchange="updateAlgoHint()">
-                <option value="linear">Pencarian Linear – O(n)</option>
-                <option value="binary">Pencarian Biner – O(log n)</option>
-                <option value="sequential">Pencarian Sekuensial – O(n)</option>
-              </select>
+          </article>
+
+          <article class="metric-card metric-amber">
+            <span class="metric-icon"><i class="bi bi-award-fill"></i></span>
+            <div class="metric-copy">
+              <span class="metric-label">Dean's List</span>
+              <strong id="dashboard-deans-count" class="metric-value">0</strong>
+              <span id="dashboard-deans-meta" class="metric-meta">Mahasiswa dengan IPK minimal 3.50.</span>
             </div>
-            <div class="col-md-2 d-flex gap-2">
-              <button type="submit" class="btn btn-info text-white flex-fill">Cari</button>
-              <button type="button" class="btn btn-outline-secondary" onclick="clearSearch()">
-                <i class="bi bi-x"></i>
+          </article>
+
+          <article class="metric-card metric-slate">
+            <span class="metric-icon"><i class="bi bi-diagram-3-fill"></i></span>
+            <div class="metric-copy">
+              <span class="metric-label">Jurusan Dominan</span>
+              <strong id="dashboard-top-major" class="metric-value metric-value-tight">Belum ada</strong>
+              <span id="dashboard-top-major-meta" class="metric-meta">Jurusan dengan populasi terbanyak.</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="dashboard-card dashboard-card-half">
+            <div class="card-eyebrow"></div>
+            <div class="dashboard-card-head">
+              <h2>Ringkasan Nilai Mahasiswa</h2>
+            </div>
+            <div class="chart-shell">
+              <canvas id="gpa-distribution-chart"></canvas>
+            </div>
+          </article>
+
+          <article class="dashboard-card dashboard-card-half">
+            <div class="card-eyebrow"></div>
+            <div class="dashboard-card-head">
+              <h2>Rata-rata IPK Per Jurusan</h2>
+            </div>
+            <div class="chart-shell chart-shell-radar">
+              <canvas id="major-radar-chart"></canvas>
+            </div>
+            <div id="major-average-list" class="dashboard-list dashboard-list-grid"></div>
+          </article>
+
+          <article class="dashboard-card dashboard-card-half">
+            <div class="card-eyebrow"></div>
+            <div class="dashboard-card-head">
+              <h2>Komposisi Mahasiswa Per Semester</h2>
+            </div>
+            <div class="chart-shell chart-shell-short">
+              <canvas id="semester-chart"></canvas>
+            </div>
+          </article>
+
+          <article class="dashboard-card dashboard-card-half">
+            <div class="card-eyebrow"></div>
+            <div class="dashboard-card-head">
+              <h2>Komposisi Jurusan</h2>
+            </div>
+            <div class="major-split">
+              <div class="donut-wrap">
+                <canvas id="major-doughnut-chart"></canvas>
+                <div class="donut-center">
+                  <strong id="major-total-count">0</strong>
+                  <span>Total</span>
+                </div>
+              </div>
+              <div id="major-share-list" class="progress-list"></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="students-section" class="content-section d-none">
+        <div class="student-overview">
+          <div>
+            <span class="card-eyebrow">Pusat Data</span>
+            <h2 class="section-card-title">Manajemen Data Mahasiswa</h2>
+            <p class="section-card-text"></p>
+          </div>
+          <div class="student-overview-actions">
+            {% if current_user.is_authenticated and current_user.is_admin %}
+              <button class="btn btn-primary" onclick="openAddModal()">
+                <i class="bi bi-plus-circle me-1"></i> Tambah Mahasiswa
               </button>
-            </div>
-          </div>
-          <div id="algo-hint" class="form-text mt-1">Mencocokkan data yang <strong>mengandung</strong> kata kunci di mana saja.</div>
-        </form>
-        <div id="search-result-info" class="algo-info mt-2 d-none"></div>
-      </div>
-    </div>
-
-    <!-- Sort Panel -->
-    <div class="collapse" id="sortPanel">
-      <div class="card-footer border-top panel-sort">
-        <div class="panel-title mb-3"><i class="bi bi-sort-alpha-down me-1"></i> Urutkan Mahasiswa</div>
-        <form class="row g-2 align-items-end" onsubmit="doSort(event)" id="sort-form">
-          <div class="col-md-3">
-            <label class="form-label small fw-semibold">Urutkan Berdasarkan</label>
-            <select class="form-select" id="sort-field">
-              <option value="name">Nama</option>
-              <option value="student_id">NIM</option>
-              <option value="gpa">IPK</option>
-              <option value="age">Usia</option>
-              <option value="major">Jurusan</option>
-            </select>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label small fw-semibold">Algoritma</label>
-            <select class="form-select" id="sort-algorithm">
-              <option value="bubble">Bubble Sort – O(n²)</option>
-              <option value="insertion">Insertion Sort – O(n²)</option>
-              <option value="selection">Selection Sort – O(n²)</option>
-              <option value="merge">Merge Sort – O(n log n)</option>
-              <option value="shell">Shell Sort – O(n log²n)</option>
-            </select>
-          </div>
-          <div class="col-md-2">
-            <label class="form-label small fw-semibold">Urutan</label>
-            <select class="form-select" id="sort-order">
-              <option value="asc">Naik ↑</option>
-              <option value="desc">Turun ↓</option>
-            </select>
-          </div>
-          <div class="col-md-4 d-flex gap-2">
-            <button type="submit" class="btn btn-warning flex-fill">Urutkan</button>
-            <button type="button" class="btn btn-outline-secondary" onclick="clearSort()">
-              <i class="bi bi-x"></i> Reset
+            {% endif %}
+            <button class="btn btn-outline-secondary" onclick="loadStudents()">
+              <i class="bi bi-arrow-clockwise me-1"></i> Segarkan
             </button>
           </div>
-        </form>
-        <div id="sort-result-info" class="algo-info mt-2 d-none"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════ STUDENTS TABLE ════════════════════════════════ -->
-  <div class="card border-0 shadow-sm">
-    <div class="card-header d-flex align-items-center justify-content-between">
-      <span class="fw-semibold">
-        <i class="bi bi-table me-1"></i> Mahasiswa
-        <span id="table-badge" class="badge bg-secondary ms-1">0</span>
-      </span>
-      <span id="view-mode-label" class="badge bg-primary px-3">Semua Mahasiswa</span>
-    </div>
-    <div class="card-body p-0">
-
-      <!-- Loading state -->
-      <div id="loading-state" class="text-center py-5">
-        <div class="spinner-border text-primary" role="status" style="width:2.5rem;height:2.5rem;"></div>
-        <p class="mt-3 text-muted fw-semibold">Memuat data mahasiswa…</p>
-      </div>
-
-      <!-- Empty state -->
-      <div id="empty-state" class="text-center py-5 d-none">
-        <i class="bi bi-inbox display-3 text-muted"></i>
-        <p class="mt-3 text-muted fw-semibold">Tidak ada mahasiswa ditemukan.</p>
-        {% if current_user.is_authenticated and current_user.is_admin %}
-          <button class="btn btn-primary btn-sm mt-1" onclick="openAddModal()">
-            <i class="bi bi-plus-circle me-1"></i> Tambahkan mahasiswa pertama
-          </button>
-        {% endif %}
-      </div>
-
-      <!-- Table -->
-      <div id="table-wrapper" class="d-none">
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
-            <thead>
-              <tr>
-                <th style="width:40px">NO</th>
-                <th>NIM</th>
-                <th>Nama</th>
-                <th>Usia</th>
-                <th>Email</th>
-                <th>Telepon</th>
-                <th>Jurusan</th>
-                <th>IPK</th>
-                <th>Nilai</th>
-                {% if current_user.is_authenticated and current_user.is_admin %}
-                  <th class="text-center" style="width:110px">Aksi</th>
-                {% endif %}
-              </tr>
-            </thead>
-            <tbody id="students-tbody"></tbody>
-          </table>
         </div>
-      </div>
 
-    </div>
+        <div class="utility-card mb-4">
+          <div class="utility-toolbar">
+            <div class="utility-copy">
+              <span class="card-eyebrow">Alat Data</span>
+              <h3>Filter dan operasi tabel</h3>
+              <p></p>
+            </div>
+
+            <div class="toolbar-actions">
+              <button class="btn btn-outline-info" data-bs-toggle="collapse" data-bs-target="#searchPanel" aria-expanded="false">
+                <i class="bi bi-search me-1"></i> Cari
+              </button>
+              <button class="btn btn-outline-warning" data-bs-toggle="collapse" data-bs-target="#sortPanel" aria-expanded="false">
+                <i class="bi bi-sort-alpha-down me-1"></i> Urutkan
+              </button>
+              {% if current_user.is_authenticated %}
+                <div class="dropdown">
+                  <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download me-1"></i> Export
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{{ url_for('export_students_excel') }}" target="_blank">
+                      <i class="bi bi-file-earmark-excel me-2"></i> Export ke Excel
+                    </a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('export_students_pdf') }}" target="_blank">
+                      <i class="bi bi-file-earmark-pdf me-2"></i> Export ke PDF
+                    </a></li>
+                  </ul>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="collapse" id="searchPanel">
+            <div class="utility-panel panel-search">
+              <div class="panel-title mb-3"><i class="bi bi-search me-1"></i> Cari Mahasiswa</div>
+              <form onsubmit="doSearch(event)" id="search-form">
+                <div class="row g-2 align-items-end">
+                  <div class="col-lg-4">
+                    <label class="form-label small fw-semibold">Kata Kunci</label>
+                    <input type="text" class="form-control" id="search-query" placeholder="Glenadi, 241011450105, Teknik…" required />
+                  </div>
+                  <div class="col-lg-3">
+                    <label class="form-label small fw-semibold">Cari Berdasarkan</label>
+                    <select class="form-select" id="search-field">
+                      <option value="name">Nama</option>
+                      <option value="student_id">NIM</option>
+                      <option value="birth_date">Tanggal Lahir</option>
+                      <option value="email">Email</option>
+                      <option value="education_level">Jenjang Pendidikan</option>
+                      <option value="major">Jurusan</option>
+                      <option value="phone">Telepon</option>
+                    </select>
+                  </div>
+                  <div class="col-lg-3">
+                    <label class="form-label small fw-semibold">Algoritma</label>
+                    <select class="form-select" id="search-algorithm" onchange="updateAlgoHint()">
+                      <option value="linear">Pencarian Linear – O(n)</option>
+                      <option value="binary">Pencarian Biner – O(log n)</option>
+                      <option value="sequential">Pencarian Sekuensial – O(n)</option>
+                    </select>
+                  </div>
+                  <div class="col-lg-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-info text-white flex-fill">Cari</button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="clearSearch()">
+                      <i class="bi bi-x"></i>
+                    </button>
+                  </div>
+                </div>
+                <div id="algo-hint" class="form-text mt-2">Mencocokkan data yang <strong>mengandung</strong> kata kunci di mana saja.</div>
+              </form>
+              <div id="search-result-info" class="algo-info mt-3 d-none"></div>
+            </div>
+          </div>
+
+          <div class="collapse" id="sortPanel">
+            <div class="utility-panel panel-sort">
+              <div class="panel-title mb-3"><i class="bi bi-sort-alpha-down me-1"></i> Urutkan Mahasiswa</div>
+              <form class="row g-2 align-items-end" onsubmit="doSort(event)" id="sort-form">
+                <div class="col-lg-3">
+                  <label class="form-label small fw-semibold">Urutkan Berdasarkan</label>
+                  <select class="form-select" id="sort-field">
+                    <option value="name">Nama</option>
+                    <option value="student_id">NIM</option>
+                    <option value="birth_date">Tanggal Lahir</option>
+                    <option value="gpa">IPK</option>
+                    <option value="education_level">Jenjang Pendidikan</option>
+                    <option value="major">Jurusan</option>
+                  </select>
+                </div>
+                <div class="col-lg-3">
+                  <label class="form-label small fw-semibold">Algoritma</label>
+                  <select class="form-select" id="sort-algorithm">
+                    <option value="bubble">Bubble Sort – O(n²)</option>
+                    <option value="insertion">Insertion Sort – O(n²)</option>
+                    <option value="selection">Selection Sort – O(n²)</option>
+                    <option value="merge">Merge Sort – O(n log n)</option>
+                    <option value="shell">Shell Sort – O(n log²n)</option>
+                  </select>
+                </div>
+                <div class="col-lg-2">
+                  <label class="form-label small fw-semibold">Urutan</label>
+                  <select class="form-select" id="sort-order">
+                    <option value="asc">Naik ↑</option>
+                    <option value="desc">Turun ↓</option>
+                  </select>
+                </div>
+                <div class="col-lg-4 d-flex gap-2">
+                  <button type="submit" class="btn btn-warning flex-fill">Urutkan</button>
+                  <button type="button" class="btn btn-outline-secondary" onclick="clearSort()">
+                    <i class="bi bi-x"></i> Reset
+                  </button>
+                </div>
+              </form>
+              <div id="sort-result-info" class="algo-info mt-3 d-none"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="student-table-header">
+            <div>
+              <span class="card-eyebrow">Data Inti</span>
+              <h2>Semua Mahasiswa</h2>
+            </div>
+            <div class="student-table-badges">
+              <span class="count-chip">Total <strong id="table-badge">0</strong></span>
+              <span id="view-mode-label" class="view-chip view-chip-primary">Semua Mahasiswa</span>
+            </div>
+          </div>
+
+          <div class="card-body p-0">
+            <div id="loading-state" class="text-center py-5">
+              <div class="spinner-border text-primary" role="status" style="width: 2.5rem; height: 2.5rem;"></div>
+              <p class="mt-3 text-muted fw-semibold">Memuat data mahasiswa…</p>
+            </div>
+
+            <div id="empty-state" class="text-center py-5 d-none">
+              <i class="bi bi-inbox display-3 text-muted"></i>
+              <p class="mt-3 text-muted fw-semibold">Tidak ada mahasiswa ditemukan.</p>
+              {% if current_user.is_authenticated and current_user.is_admin %}
+                <button class="btn btn-primary btn-sm mt-1" onclick="openAddModal()">
+                  <i class="bi bi-plus-circle me-1"></i> Tambahkan mahasiswa pertama
+                </button>
+              {% endif %}
+            </div>
+
+            <div id="table-wrapper" class="d-none">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th style="width: 52px;">No</th>
+                      <th>NIM</th>
+                      <th>Mahasiswa</th>
+                      <th>Tanggal Lahir</th>
+                      <th>Email</th>
+                      <th>Jenjang</th>
+                      <th>Jurusan</th>
+                      <th>IPK</th>
+                      <th>Semester</th>
+                      {% if current_user.is_authenticated and current_user.is_admin %}
+                        <th class="text-center" style="width: 132px;">Aksi</th>
+                      {% endif %}
+                    </tr>
+                  </thead>
+                  <tbody id="students-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
-
-
-</div><!-- /container-fluid -->
 
 <!-- ══════════════════ ADD / EDIT MODAL ═══════════════════════════════════ -->
 <div class="modal fade" id="studentModal" tabindex="-1" aria-labelledby="modal-title" aria-hidden="true">
@@ -251,11 +389,12 @@
                      placeholder="Glenadi Teguh A" autocomplete="off" required />
             </div>
             <div class="col-md-4">
-              <label class="form-label fw-semibold" for="f-age">
-                Usia <span class="text-danger">*</span>
+              <label class="form-label fw-semibold" for="f-birth_date">
+                Tanggal Lahir <span class="text-danger">*</span>
               </label>
-              <input type="number" class="form-control" id="f-age" name="age"
-                     min="16" max="100" placeholder="22" required />
+              <input type="date" class="form-control" id="f-birth_date" name="birth_date"
+                     min="2000-01-01" max="2005-12-31" required />
+              <div class="form-text">Gunakan rentang tahun 2000 sampai 2005.</div>
             </div>
             <div class="col-md-8">
               <label class="form-label fw-semibold" for="f-email">
@@ -272,13 +411,26 @@
                      placeholder="+62 8967-1236-868" autocomplete="off" required />
             </div>
             <div class="col-md-6">
+              <label class="form-label fw-semibold" for="f-education_level">
+                Jenjang Pendidikan <span class="text-danger">*</span>
+              </label>
+              <select class="form-select" id="f-education_level" name="education_level" required>
+                <option value="" selected disabled>Pilih jenjang pendidikan</option>
+                <option value="D3">D3</option>
+                <option value="D4">D4</option>
+                <option value="S1">S1</option>
+                <option value="S2">S2</option>
+                <option value="S3">S3</option>
+              </select>
+            </div>
+            <div class="col-md-6">
               <label class="form-label fw-semibold" for="f-major">
                 Jurusan <span class="text-danger">*</span>
               </label>
               <input type="text" class="form-control" id="f-major" name="major"
                      placeholder="Teknik Informatika" autocomplete="off" required />
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label class="form-label fw-semibold" for="f-gpa">
                 IPK <span class="text-danger">*</span>
               </label>
@@ -286,10 +438,13 @@
                      min="0" max="4.0" step="0.01" placeholder="3.50" required />
               <div class="form-text">Rentang: 0.00 – 4.00</div>
             </div>
-            <div class="col-md-8">
-              <label class="form-label fw-semibold" for="f-address">Alamat</label>
-              <input type="text" class="form-control" id="f-address" name="address"
-                     placeholder="Jl.Musi Rt 11 Rw 04 Slawi Wetan  (opsional)" />
+            <div class="col-md-3">
+              <label class="form-label fw-semibold" for="f-semester">
+                Semester <span class="text-danger">*</span>
+              </label>
+              <input type="number" class="form-control" id="f-semester" name="semester"
+                     min="1" max="14" placeholder="Contoh: 4" required />
+              <div class="form-text">Rentang semester: 1 sampai 14.</div>
             </div>
           </div>
         </div>
@@ -349,12 +504,11 @@
 <!-- ══════════════════ TOAST CONTAINER ════════════════════════════════════ -->
 <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999;"></div>
 
-<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
   window.IS_ADMIN = "{{ 'true' if current_user.is_authenticated and current_user.is_admin else 'false' }}";
 </script>
-<!-- App JS -->
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

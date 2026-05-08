@@ -10,7 +10,10 @@ composite validate() method that returns a list of error messages.
 """
 
 import re
+from datetime import date
 from typing import Dict, List, Optional
+
+from models.student import DEFAULT_EDUCATION_LEVELS
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -87,6 +90,27 @@ class StudentValidator:
         return None
 
     @staticmethod
+    def validate_birth_date(value) -> Optional[str]:
+        """Validate birth date: ISO date and age between 16 and 100."""
+        if value is None or not str(value).strip():
+            return "Birth date is required."
+
+        try:
+            birth_date = date.fromisoformat(str(value).strip())
+        except ValueError:
+            return "Birth date must use the YYYY-MM-DD format."
+
+        today = date.today()
+        if birth_date > today:
+            return "Birth date cannot be in the future."
+
+        age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        if not (16 <= age <= 100):
+            return "Birth date must produce an age between 16 and 100 years."
+
+        return None
+
+    @staticmethod
     def validate_email(value) -> Optional[str]:
         """Validate email address format."""
         if not value or not str(value).strip():
@@ -130,6 +154,31 @@ class StudentValidator:
             return "GPA must be between 0.0 and 4.0."
         return None
 
+    @staticmethod
+    def validate_semester(value) -> Optional[str]:
+        """Validate semester: integer between 1 and 14."""
+        if value is None or not str(value).strip():
+            return "Semester is required."
+        try:
+            semester = int(value)
+        except (TypeError, ValueError):
+            return "Semester harus berupa angka bulat."
+        if not (1 <= semester <= 14):
+            return "Semester harus berada di antara 1 sampai 14."
+        return None
+
+    @staticmethod
+    def validate_education_level(value) -> Optional[str]:
+        """Validate education level: D3, D4, S1, S2, or S3."""
+        if value is None or not str(value).strip():
+            return "Education level is required."
+
+        normalized = str(value).strip().upper()
+        if normalized not in DEFAULT_EDUCATION_LEVELS:
+            return "Education level must be one of D3, D4, S1, S2, or S3."
+
+        return None
+
     # ── Composite validator ────────────────────────────────────────────────
 
     @classmethod
@@ -160,15 +209,18 @@ class StudentValidator:
             "student_id": cls.validate_student_id,
             "name":       cls.validate_name,
             "age":        cls.validate_age,
+            "birth_date": cls.validate_birth_date,
             "email":      cls.validate_email,
             "phone":      cls.validate_phone,
+            "education_level": cls.validate_education_level,
             "major":      cls.validate_major,
             "gpa":        cls.validate_gpa,
+            "semester":   cls.validate_semester,
         }
 
         # Which fields are required for a CREATE operation
         required_on_create = [
-            "student_id", "name", "age", "email", "phone", "major", "gpa"
+            "student_id", "name", "birth_date", "email", "phone", "education_level", "major", "gpa", "semester"
         ]
 
         for field, validator_fn in field_validators.items():
