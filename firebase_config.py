@@ -17,6 +17,7 @@ GOOGLE_APPLICATION_CREDENTIALS to its path.
 ──────────────────────────────────────────────────────────────────────────────
 """
 
+import base64
 import json
 import os
 import firebase_admin
@@ -28,6 +29,10 @@ FIREBASE_PROJECT_ID     = "data-mahasiswa-132d3"
 FIREBASE_STORAGE_BUCKET = "data-mahasiswa-132d3.firebasestorage.app"
 
 _PROJECT_ROOT = os.path.dirname(__file__)
+_SERVICE_ACCOUNT_JSON_BASE64_ENV_VARS = (
+    "FIREBASE_SERVICE_ACCOUNT_JSON_BASE64",
+    "FIREBASE_SERVICE_ACCOUNT_BASE64",
+)
 _SERVICE_ACCOUNT_JSON_ENV_VARS = (
     "FIREBASE_SERVICE_ACCOUNT_JSON",
     "FIREBASE_SERVICE_ACCOUNT_KEY",
@@ -55,6 +60,25 @@ def _resolve_service_account_path() -> str | None:
 
 
 def _resolve_service_account_certificate():
+    for env_name in _SERVICE_ACCOUNT_JSON_BASE64_ENV_VARS:
+        encoded_json = os.environ.get(env_name, "").strip()
+        if not encoded_json:
+            continue
+
+        try:
+            raw_json = base64.b64decode(encoded_json).decode("utf-8")
+            service_account_info = json.loads(raw_json)
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise RuntimeError(
+                f"Environment variable '{env_name}' must contain valid base64-encoded Firebase service account JSON."
+            ) from exc
+
+        private_key = service_account_info.get("private_key")
+        if private_key:
+            service_account_info["private_key"] = private_key.replace("\\n", "\n")
+
+        return credentials.Certificate(service_account_info)
+
     for env_name in _SERVICE_ACCOUNT_JSON_ENV_VARS:
         raw_json = os.environ.get(env_name, "").strip()
         if not raw_json:
@@ -85,10 +109,11 @@ def get_firestore_client():
     Initialize the Firebase Admin SDK (only once) and return a Firestore client.
 
     Initialization order:
-      1. FIREBASE_SERVICE_ACCOUNT_JSON / FIREBASE_SERVICE_ACCOUNT_KEY env var
-      2. serviceAccountKey.json in project root  (local development)
-      3. GOOGLE_APPLICATION_CREDENTIALS env var  (any explicit path)
-      4. Application Default Credentials          (GCP / Cloud Run deployment)
+            1. FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 env var
+            2. FIREBASE_SERVICE_ACCOUNT_JSON / FIREBASE_SERVICE_ACCOUNT_KEY env var
+            3. serviceAccountKey.json in project root  (local development)
+            4. GOOGLE_APPLICATION_CREDENTIALS env var  (any explicit path)
+            5. Application Default Credentials          (GCP / Cloud Run deployment)
     """
     if not firebase_admin._apps:
         service_account_credential = _resolve_service_account_certificate()
@@ -108,7 +133,7 @@ def get_firestore_client():
             except DefaultCredentialsError as exc:
                 raise RuntimeError(
                     "Firebase Admin credentials were not found. "
-                    "Set FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS in the deployment environment."
+                    "Set FIREBASE_SERVICE_ACCOUNT_JSON_BASE64, FIREBASE_SERVICE_ACCOUNT_JSON, or GOOGLE_APPLICATION_CREDENTIALS in the deployment environment."
                 ) from exc
 
     try:
@@ -116,7 +141,7 @@ def get_firestore_client():
     except DefaultCredentialsError as exc:
         raise RuntimeError(
             "Firebase Admin credentials were not found. "
-            "Set FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS in the deployment environment."
+            "Set FIREBASE_SERVICE_ACCOUNT_JSON_BASE64, FIREBASE_SERVICE_ACCOUNT_JSON, or GOOGLE_APPLICATION_CREDENTIALS in the deployment environment."
         ) from exc
 
 
