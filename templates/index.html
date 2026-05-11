@@ -342,7 +342,7 @@
                       <th>Jurusan</th>
                       <th>IPK</th>
                       <th>Semester</th>
-                      {% if current_user.is_authenticated and current_user.is_admin %}
+                        {% if current_user.is_authenticated %}
                         <th class="text-center" style="width: 132px;">Aksi</th>
                       {% endif %}
                     </tr>

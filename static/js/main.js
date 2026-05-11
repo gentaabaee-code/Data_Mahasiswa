@@ -122,19 +122,23 @@ function renderTable(students) {
         const safeName = esc(student.name || 'Mahasiswa');
         const safeStatus = esc(student.status || 'Status belum tersedia');
         const initial = esc((student.name || '?').trim().charAt(0).toUpperCase() || '?');
-        const actions = isAdmin ? `
-            <td class="text-center" style="white-space: nowrap;">
-                <button class="btn btn-sm btn-outline-primary action-icon me-1" title="Lihat detail" onclick="openViewModal('${student.student_id}')">
-                    <i class="bi bi-eye"></i>
-                </button>
+        const adminActions = isAdmin ? `
                 <button class="btn btn-sm btn-outline-warning action-icon me-1" title="Edit" onclick="openEditModal('${student.student_id}')">
                     <i class="bi bi-pencil"></i>
                 </button>
                 <button class="btn btn-sm btn-outline-danger action-icon" title="Hapus" onclick="openDeleteModal('${student.student_id}', '${safeName}')">
                     <i class="bi bi-trash3"></i>
                 </button>
-            </td>
         ` : '';
+
+        const actions = `
+            <td class="text-center" style="white-space: nowrap;">
+                <button class="btn btn-sm btn-outline-primary action-icon${isAdmin ? ' me-1' : ''}" title="Lihat detail" onclick="openViewModal('${student.student_id}')">
+                    <i class="bi bi-eye"></i>
+                </button>
+                ${adminActions}
+            </td>
+        `;
 
         return `
             <tr>
